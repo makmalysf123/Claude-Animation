@@ -1,0 +1,11 @@
+node_modules/
+out/
+tmp/
+.remotion/
+*.log
+__pycache__/
+.DS_Store
+# Mixamo downloads stay local (large, and Adobe's terms don't allow sharing the raw files)
+public/mixamo/*.fbx
+# Kenney models: download from kenney.nl (CC0) into public/bridge/kenney/ if you want them
+public/bridge/kenney/*.glb
