@@ -12,23 +12,25 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "remotion": "4.0.541",
-    "@remotion/cli": "4.0.541",
-    "@remotion/three": "4.0.541",
-    "@remotion/bundler": "4.0.541",
-    "@remotion/renderer": "4.0.541",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "three": "0.170.0",
     "@react-three/fiber": "8.18.0",
     "@react-three/postprocessing": "^2.16.0",
-    "postprocessing": "^6.36.0"
+    "@remotion/bundler": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "@remotion/three": "4.0.541",
+    "postprocessing": "^6.36.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.541",
+    "three": "0.170.0",
+    "topojson-client": "3.1.0",
+    "world-atlas": "2.0.2"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "@types/three": "0.170.0",
     "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0"
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "0.170.0",
+    "typescript": "^5.6.0"
   },
   "private": true
 }

@@ -9,3 +9,9 @@ __pycache__/
 public/mixamo/*.fbx
 # Kenney models: download from kenney.nl (CC0) into public/bridge/kenney/ if you want them
 public/bridge/kenney/*.glb
+
+# Portable Node.js (downloaded from nodejs.org, local only)
+.tools/
+
+# Third-party reference videos (study only, never commit or reuse)
+references/
