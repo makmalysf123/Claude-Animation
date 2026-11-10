@@ -15,3 +15,6 @@ public/bridge/kenney/*.glb
 
 # Third-party reference videos (study only, never commit or reuse)
 references/
+
+# Big downloaded source data (NASA Blue Marble tiles etc.), local only
+.cache/

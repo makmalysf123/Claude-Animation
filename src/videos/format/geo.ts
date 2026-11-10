@@ -156,13 +156,13 @@ export const GROUP_CENTER: Record<Group, [number, number]> = {
   "Bali & NT": [119.5, -8.7], Maluku: [128.8, -3.2], Papua: [137.5, -4.3],
 };
 const groupOf = (cx: number, cy: number): Group | null => {
-  if (cx < 106.2 && cy > -6.2) return "Sumatra";
-  if (cx >= 105 && cx < 114.6 && cy < -5.6) return "Jawa";
-  if (cx >= 108 && cx < 119.3 && cy >= -4.6) return "Kalimantan";
+  if (cx < 106.2 && cy > -6.2 && cy < 6.2 && cx > 94.5 && !(cx > 99.5 && cy > 1.6)) return "Sumatra"; // not the Malay Peninsula
+  if (cx >= 105 && cx < 114.6 && cy < -5.6 && cy > -9.2) return "Jawa"; // not Christmas Island
+  if (cx >= 108 && cx < 119.3 && cy >= -4.6 && cy < 7.2) return "Kalimantan"; // not Palawan
   if (cx >= 114.6 && cx < 125.5 && cy < -7.6) return "Bali & NT";
   if (cx >= 118.5 && cx < 125.6 && cy >= -6.5 && cy < 2.6) return "Sulawesi";
   if (cx >= 130.8 && cy > -9.5) return "Papua"; // not Australia
-  if (cx >= 124 && cx < 135.5 && cy > -9.5) return "Maluku";
+  if (cx >= 124 && cx < 135.5 && cy > -9.5 && cy < 3.0) return "Maluku"; // not the Philippines
   return null;
 };
 let groupsBuilt: { geo: Record<Group, THREE.BufferGeometry>; other: THREE.BufferGeometry } | null = null;
@@ -185,4 +185,40 @@ export const islandGroups = (depth = 0.12) => {
   const geo = Object.fromEntries(GROUPS.map((k) => [k, mergeGeometries(bins[k] ?? [])!])) as Record<Group, THREE.BufferGeometry>;
   groupsBuilt = { geo, other: mergeGeometries(bins.other ?? [])! };
   return groupsBuilt;
+};
+
+// ---------- outlines (rings as world-space points) for glowing borders ----------
+export type Pick = "Bali" | "Lombok" | Group;
+export const ringsFor = (pick: Pick, y = 0.03): THREE.Vector3[][] => {
+  const out: THREE.Vector3[][] = [];
+  for (const p of polys(land10)) {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const [x, yy] of p[0]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); }
+    if (x1 < 92 || x0 > 144 || y1 < -14 || y0 > 20 || Math.hypot(x1 - x0, y1 - y0) < 0.04) continue;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const near = (q: [number, number]) => Math.abs(cx - q[0]) < 0.35 && Math.abs(cy - q[1]) < 0.3 && x1 - x0 > 0.4;
+    const ok = pick === "Bali" ? near(BALI) : pick === "Lombok" ? near(LOMBOK) : groupOf(cx, cy) === pick;
+    if (ok) out.push(p[0].map(([lon, lat]) => P(lon, lat, y)));
+  }
+  return out;
+};
+export const fillFor = (pick: Pick) => {
+  const shapes: THREE.Shape[] = [];
+  for (const r of ringsFor(pick, 0)) shapes.push(new THREE.Shape(r.map((v) => new THREE.Vector2(v.x, -v.z))));
+  const g = new THREE.ShapeGeometry(shapes);
+  g.rotateX(-Math.PI / 2);
+  return g;
+};
+
+// ---------- countries (real political borders, Natural Earth 1:10m) ----------
+import countries10 from "world-atlas/countries-10m.json";
+export const COUNTRY = { China: "156", Indonesia: "360" } as const;
+// Each island/part of a country as rings in world space (outer ring first, then holes).
+export const countryParts = (id: string, y = 0): THREE.Vector3[][][] => {
+  const fc = feature(countries10, (countries10 as any).objects.countries) as any;
+  const ft = fc.features.find((x: any) => x.id === id);
+  if (!ft) return [];
+  const g = ft.geometry;
+  const ps: Poly[] = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  return ps.map((p) => p.map((ring) => ring.map(([lon, lat]) => P(lon, lat, y))));
 };
