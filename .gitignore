@@ -18,3 +18,6 @@ references/
 
 # Big downloaded source data (NASA Blue Marble tiles etc.), local only
 .cache/
+
+# Test narration from TTS (regenerate with audio/voice_tts.py); the final voice is added separately
+voice/

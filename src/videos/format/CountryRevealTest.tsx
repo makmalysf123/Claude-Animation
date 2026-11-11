@@ -23,7 +23,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ---------- texture (NASA Blue Marble crop: lon 55..165, lat 88..-48, 40 px/deg) ----------
 let texP: Promise<THREE.Texture> | null = null;
-const useTex = () => {
+export const useTex = () => {
   const [t, setT] = useState<THREE.Texture | null>(null);
   const [h] = useState(() => delayRender("asia texture", { timeoutInMilliseconds: 120000 }));
   useEffect(() => { (texP ??= new THREE.TextureLoader().loadAsync(staticFile("maps/asia_bmng_40.jpg")).then((x) => { x.anisotropy = 8; return x; })).then((x) => { setT(x); continueRender(h); }); }, [h]);
@@ -32,7 +32,7 @@ const useTex = () => {
 
 // ---------- per-part ink ----------
 const partFrames = (maxR: number) => Math.round(Math.min(45, Math.max(10, 9 + 7.5 * Math.sqrt(maxR))));
-type Country = { fill: THREE.Mesh; glow: LineSegments2; core: LineSegments2; keys: number[]; end: number; anchor: THREE.Vector2 };
+export type Country = { fill: THREE.Mesh; glow: LineSegments2; core: LineSegments2; keys: number[]; end: number; anchor: THREE.Vector2 };
 const NOISE = `
   float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -40,24 +40,43 @@ const NOISE = `
   float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int k = 0; k < 4; k++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }`;
 const inkMat = (color: string) => new THREE.ShaderMaterial({
   transparent: true, depthWrite: false,
-  uniforms: { color: { value: new THREE.Color(color) }, opacity: { value: 0.3 }, uF: { value: -1 }, time: { value: 0 } },
+  uniforms: { color: { value: new THREE.Color(color) }, opacity: { value: 0.3 }, uF: { value: -1 }, time: { value: 0 },
+    uSplit: { value: new THREE.Vector3(0, 0, 0) }, uShare: { value: new THREE.Vector2(0.0038, 0.6635) }, uCell: { value: 0.26 },
+    cA: { value: new THREE.Color("#2ee6a6") }, cB: { value: new THREE.Color("#ffd23f") }, cC: { value: new THREE.Color("#ff4d5e") } },
   vertexShader: `attribute vec2 aC; attribute float aR, aDelay, aDur; uniform float uF;
     varying vec2 vXZ, vC; varying float vR, vP;
     void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vXZ = w.xz; vC = aC; vR = aR;
       float t = clamp((uF - aDelay) / aDur, 0.0, 1.0); vP = (uF < aDelay) ? -1.0 : sin(t * 1.5707963);
       gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: `uniform vec3 color; uniform float opacity, time; varying vec2 vXZ, vC; varying float vR, vP; ${NOISE}
+  fragmentShader: `uniform vec3 color, cA, cB, cC, uSplit; uniform vec2 uShare; uniform float opacity, time, uCell; varying vec2 vXZ, vC; varying float vR, vP; ${NOISE}
     void main(){
       if (vP < 0.0) discard;
       vec2 q = (vXZ - vC) / vR; float ang = atan(q.y, q.x);
       float lump = fbm(vec2(cos(ang), sin(ang)) * 2.3 + vec2(time * 1.4, -time * 1.1) + vC * 0.37) - 0.5;
       float dn = length(q) * (1.0 + lump * 0.75);
       float inside = 1.0 - smoothstep(vP * 1.35 - 0.012, vP * 1.35, dn);
-      gl_FragColor = vec4(color, opacity * inside);
+      vec4 base = vec4(color, opacity * inside);
+      if (uSplit.x + uSplit.y + uSplit.z > 0.0) {
+        // people dots: each cell is one dot, its class picked by a hash so class shares match the data
+        vec2 cid = floor(vXZ / uCell); vec2 fr = fract(vXZ / uCell) - 0.5;
+        float k = hash(cid * 1.7 + 9.2), h = hash(cid + 3.1);
+        float cls = k < uShare.x ? 0.0 : (k < uShare.x + uShare.y ? 1.0 : 2.0);
+        vec3 cc = cls < 0.5 ? cA : (cls < 1.5 ? cB : cC);
+        float s = cls < 0.5 ? uSplit.x : (cls < 1.5 ? uSplit.y : uSplit.z);
+        float flip = smoothstep(h * 0.6, h * 0.6 + 0.4, s);
+        float rad = cls < 0.5 ? 0.46 + 0.06 * sin(time * 6.0) : 0.34;
+        float dotm = 1.0 - smoothstep(rad - 0.06, rad, length(fr) * (1.0 + 0.0 * flip));
+        float halo = cls < 0.5 ? (1.0 - smoothstep(rad, rad + 0.5, length(fr))) * 0.8 : 0.0; // rich dots glow
+        vec3 gap = vec3(0.04, 0.08, 0.14);
+        vec3 col = mix(gap, cc, max(dotm, halo * 0.7));
+        float a = mix(opacity, max(mix(0.62, 0.98, dotm), halo), flip) * inside;
+        base = vec4(mix(color, col, flip), a);
+      }
+      gl_FragColor = base;
     }`,
 });
 // spread: frames over which the drops ripple out from the biggest part to the farthest one
-const buildCountry = (id: string, color: string, spread: number): Country => {
+export const buildCountry = (id: string, color: string, spread: number): Country => {
   const parts = countryParts(id, 0.02).filter((p) => p[0].length > 3);
   const info = parts.map((rings) => {
     const c = pourPoint([rings[0]]);
@@ -91,7 +110,7 @@ const buildCountry = (id: string, color: string, spread: number): Country => {
   const end = Math.max(...info.map((i) => i.delay + i.dur));
   return { fill, glow: fatLine(pos, "#ffffff", 5, 0.12), core: fatLine(pos, "#ffffff", 1.4, 0.95), keys: list.map((x) => x.k), end, anchor: main.c };
 };
-const setCountry = (c: Country, uF: number, time: number) => {
+export const setCountry = (c: Country, uF: number, time: number) => {
   const u = (c.fill.material as THREE.ShaderMaterial).uniforms; u.uF.value = uF; u.time.value = time;
   let lo = 0, hi = c.keys.length; while (lo < hi) { const m = (lo + hi) >> 1; if (c.keys[m] <= uF) lo = m + 1; else hi = m; }
   for (const l of [c.glow, c.core]) (l.geometry as LineSegmentsGeometry).instanceCount = lo;
