@@ -2,7 +2,7 @@
 // MIT, Mr omi): bean heads, plum ink, painted crescents. Our own outfits + overlays on top of bodyFront:
 // caping (rice-farmer hat), peci, hijab, sunglasses + gold chain (rich), patches (poor) and the karung goni (sack) that
 // everybody wears after the whirlwind takes everything. Plus chickens and chicks in the same ink style.
-import { Pen, bodyFront, headBlob, Outfit, FrontOpts, INK, mix, shade } from "../bridge/toon";
+import { Pen, bodyFront, headBlob, Outfit, FrontOpts, INK, mix, shade, HANDS_OUT } from "../bridge/toon";
 
 type P2 = [number, number];
 /** plain white faces like the reference channel */
@@ -11,7 +11,7 @@ const BUILD = { adult: { a: 118, torso: 1.1, legs: 1.4, tw: 0.8 }, stout: { a: 1
 
 export type Extra = "caping" | "peci" | "hijab" | "longhair" | "shades" | "chain" | "patches" | "sack" | "sweat" | "suit";
 /** damage 0..1 = holes, tears and dirt on the clothes; shine 0..1 = glossy sheen + sparkles (restored wealth) */
-export type Person = { o: Outfit; extras: Extra[]; hijab?: string; sack?: string; sign?: string; damage?: number; shine?: number };
+export type Person = { o: Outfit; extras: Extra[]; hijab?: string; sack?: string; sign?: string; cheque?: boolean; damage?: number; shine?: number };
 /** the same person in a story state: their own clothes, torn by the whirlwind (damage) and restored later (shine) */
 export const state = (p: Person, damage: number, shine = 0): Person => ({ ...p, damage, shine });
 
@@ -39,23 +39,50 @@ export const villager = (i: number): Person => {
   return { o: base, extras };
 };
 
-// ---- head geometry (same numbers as bodyFront, stand / sit only) ----
+// ---- body geometry: the same numbers as bodyFront (bob, squat, head morph, lean), so overlays ride on the body ----
+const rd = (d: number) => (d * Math.PI) / 180;
 const geom = (o: Outfit, opts: FrontOpts) => {
-  const Bd = BUILD[o.build ?? "adult"], H = headBlob(opts.seed ?? 1, Bd.a, opts.facing ?? 0), HH = 2 * H.b, sole = 975;
-  const torsoBot = opts.mode === "sit" ? sole - 0.2 * HH : sole - Bd.legs * HH;
-  const chin = torsoBot - Bd.torso * HH, hc = chin - H.b;
-  return { H, HH, W: 2 * H.a, sole, torsoBot, chin, hc, crown: hc - H.b, u: (2 * H.a) / 100, Ta: ((Bd.tw / 2) * 2 * H.a) / 1.06 };
+  const Bd = BUILD[o.build ?? "adult"], headK = opts.headK ?? 1, H0 = headBlob(opts.seed ?? 1, Bd.a, opts.facing ?? 0);
+  const H = { ...H0, a: H0.a * headK, b: H0.b / Math.sqrt(headK) }, HH = 2 * H0.b, W = 2 * H0.a, sole = 975, two = Math.PI * 2;
+  const mode = opts.mode ?? "march", ph = opts.phase ?? 0, tall = (1 + Bd.torso + Bd.legs) * HH;
+  const bob = (opts.bobK ?? 1) * (mode === "march" ? 0.025 * tall * Math.cos(2 * two * ph) : mode === "stroll" ? 0.015 * tall * Math.cos(2 * two * ph) : 0);
+  const torsoBot = mode === "sit" ? sole - 0.2 * HH : sole - Bd.legs * HH + bob + (opts.squat ?? 0) * 0.34 * Bd.legs * HH;
+  const chin = torsoBot - Bd.torso * HH, hc = chin - H.b, hipY = torsoBot - 0.12 * HH;
+  const sway = mode === "march" ? 1.6 * Math.sin(two * ph) : mode === "stroll" ? 1.0 * Math.sin(two * ph) : 0, A = (opts.tilt ?? 0) + sway, Ah = A + (opts.headTilt ?? 0);
+  const c = Math.cos(rd(A)), sn = Math.sin(rd(A)), cpx = 300 + (300 - 300) * c - (chin - hipY) * sn, cpy = hipY + (300 - 300) * sn + (chin - hipY) * c;
+  const torsoRot = A ? [rd(A), 300, hipY] : null, headRot = Ah ? [rd(Ah), 300, chin, cpx - 300, cpy - chin] : null;
+  return { H, HH, W, Wh: 2 * H.a, sole, torsoBot, chin, hc, crown: hc - H.b, u: W / 100, Ta: ((Bd.tw / 2) * W) / 1.06, torsoRot, headRot };
+};
+/** things a hand can hold (drawn at the hand after the body) */
+export type Held = "drumstick" | "bone" | "egg" | "basket" | "crank" | "coin" | "plank";
+/** motion trail: where the hands (and what they hold) were 1-3 frames ago, drawn as fading ghosts behind the body */
+export type Ghost = { hands: [P2 | null, P2 | null]; a: number };
+export type ActOpts = FrontOpts & { hold?: [Held | null, Held | null]; trail?: Ghost[]; signSway?: number; bitten?: number };
+const drawHeld = (p: Pen, k: Held, [x, y]: [number, number], side: number, u: number) => {
+  if (k === "drumstick" || k === "bone") {
+    p.stroke([[x - side * 4 * u, y + 2 * u], [x + side * 16 * u, y - 18 * u]], 5 * u, "#f4ecd8"); p.ell(x + side * 18 * u, y - 21 * u, 4 * u, 4 * u, "#f4ecd8", 2 * u);
+    if (k === "drumstick") p.ell(x - side * 6 * u, y + 6 * u, 13 * u, 10 * u, "#b8642a", 3 * u, 0, 360, side * 35);
+  } else if (k === "egg") p.ell(x, y - 6 * u, 8 * u, 10 * u, "#fbf3e2", 2.6 * u);
+  else if (k === "coin") p.ell(x, y - 4 * u, 8 * u, 8 * u, "#ffcf3a", 2.6 * u);
+  else if (k === "crank") p.stroke([[x, y], [x, y - 22 * u]], 4 * u, "#6b4a2e");
+  else if (k === "plank") { p.poly([[x - side * 150 * u, y - 14 * u], [x + side * 40 * u, y - 4 * u], [x + side * 40 * u, y + 8 * u], [x - side * 150 * u, y - 2 * u]], "#9a7048", 3 * u); p.stroke([[x - side * 120 * u, y - 7 * u], [x + side * 20 * u, y + 1 * u]], 1.5 * u, "#6b4a2e"); }
+  else if (k === "basket") {
+    p.ell(x - side * 26 * u, y - 10 * u, 16 * u, 10 * u, "#fbf3e2", 2.4 * u); p.ell(x - side * 12 * u, y - 13 * u, 14 * u, 9 * u, "#f4ead6", 2.4 * u);
+    p.poly([[x - side * 50 * u, y - 8 * u], [x + side * 8 * u, y - 8 * u], [x + side * 2 * u, y + 22 * u], [x - side * 44 * u, y + 22 * u]], "#b88a4a", 3 * u);
+    for (let i = 1; i < 4; i++) p.stroke([[x - side * (50 - i * 2) * u, y - 8 * u + i * 7.5 * u], [x + side * (8 - i * 2) * u, y - 8 * u + i * 7.5 * u]], 1.6 * u, "#8a6234");
+  }
 };
 
 /** draw one person (600 x 1000 design space). The sack replaces the body below the chin. */
-export const drawPerson = (p: Pen, P: Person, opts: FrontOpts) => {
+export const drawPerson = (p: Pen, P: Person, opts: ActOpts) => {
   opts = { ...opts };
-  const o = P.o, G = geom(o, opts), { H, HH, W, chin, hc, crown, u, sole } = G;
+  const o = P.o, G = geom(o, opts), { H, HH, W, chin, hc, crown, u, sole } = G, Wh = G.Wh;
   const sack = P.extras.includes("sack");
   if (P.extras.includes("hijab")) { // drape behind the head + over the shoulders
     p.ell(300, hc + 0.2 * H.b, H.a * 1.22, H.b * 1.25, P.hijab!, 5 * u);
     if (!sack) p.poly([[300 - 0.62 * W, chin + 0.55 * HH], [300 - 0.5 * W, chin - 0.1 * HH], [300 + 0.5 * W, chin - 0.1 * HH], [300 + 0.62 * W, chin + 0.55 * HH]], P.hijab!, 5 * u);
   }
+  p.rot = G.headRot;
   if (P.extras.includes("longhair")) {
     const hairPts: P2[] = [];
     for (let i = 0; i <= 20; i++) { const t = Math.PI + (i / 20) * Math.PI; hairPts.push([300 + Math.cos(t) * H.a * 1.1, hc + Math.sin(t) * H.b * 1.08]); }
@@ -63,17 +90,43 @@ export const drawPerson = (p: Pen, P: Person, opts: FrontOpts) => {
     p.poly(hairPts, o.hair ?? "#1e1410", 5 * u);
   }
   if (P.sign) {
+    // the board rides on the raised hand: same torso rotation as the arm, plus its own swing about the fist (signSway, rad).
+    // Board, stick AND lettering all go through the same transform, so the text can never stay behind when the board moves.
     opts = { ...opts, wave: 1 };
     const tcx = 300 + 3 * u * (opts.facing ?? 0), Sy = chin + 0.12 * HH;
     const hx = tcx + 1.18 * G.Ta + 16 * u + 12 * u, hy = Sy - 0.6 * HH;
     const bw = 300, bh = 150, bx = Math.min(hx, 600 - bw / 2 - 8), by = Math.max(bh / 2 + 6, crown - 0.55 * HH);
-    p.band([[hx, hy + 40], [hx, by + bh / 2 - 4]], "#8b5a32", 9, 2.5, "round"); // stick from below the fist up into the board
-    p.poly([[bx - bw / 2, by - bh / 2], [bx + bw / 2, by - bh / 2 + 4], [bx + bw / 2 - 3, by + bh / 2], [bx - bw / 2 + 2, by + bh / 2 - 3]], "#f1e6c8", 6);
-    const g = p.g; g.save(); g.fillStyle = "#c0262f"; g.textAlign = "center"; g.textBaseline = "middle";
+    const sa = opts.signSway ?? 0, cs = Math.cos(sa), sn = Math.sin(sa);
+    const R = ([x, y]: P2): P2 => [hx + (x - hx) * cs - (y - hy) * sn, hy + (x - hx) * sn + (y - hy) * cs];
+    const quad = (x0: number, y0: number, x1: number, y1: number, j = 0): P2[] => [R([x0, y0]), R([x1, y0 + j]), R([x1 - j * 0.7, y1]), R([x0 + j * 0.5, y1 - j * 0.7])];
+    p.rot = G.torsoRot;
+    p.band([R([hx, hy + 40]), R([hx, by + bh / 2 - 4])], "#8b5a32", 9, 2.5, "round"); // stick from below the fist up into the board
+    const edge = quad(bx - bw / 2 + 7, by - bh / 2 + 9, bx + bw / 2 + 7, by + bh / 2 + 9, 4); // cardboard thickness on the shadow side
+    p.poly(edge, P.cheque ? "#c9c9c0" : "#b89a6a", 5);
+    if (P.cheque) { // giant cheque: white, green border, small header line
+      p.poly(quad(bx - bw / 2, by - bh / 2, bx + bw / 2, by + bh / 2), "#fbfbf6", 6);
+      p.poly(quad(bx - bw / 2 + 10, by - bh / 2 + 10, bx + bw / 2 - 10, by + bh / 2 - 10), null, 3);
+    } else p.poly(quad(bx - bw / 2, by - bh / 2, bx + bw / 2, by + bh / 2, 4), "#f1e6c8", 6);
+    const g = p.g, [tx, ty] = p.P(...R([bx, by])); g.save(); g.translate(tx, ty); g.rotate(sa + (G.torsoRot ? G.torsoRot[0] : 0));
+    if (P.cheque) { g.fillStyle = "#2e7d4f"; g.font = "800 20px 'Avenir Next', Arial"; g.textAlign = "center"; g.fillText("BAYAR KEPADA: PAK WARGA", 0, -bh / 2 + 34, bw - 44); }
+    g.fillStyle = P.cheque ? "#1f6b44" : "#c0262f"; g.textAlign = "center"; g.textBaseline = "middle";
     let fsz = 80; g.font = `900 ${fsz}px 'Avenir Next', Arial`; const tw = g.measureText(P.sign).width; fsz = Math.min(80, (fsz * (bw - 36)) / tw); g.font = `900 ${fsz}px 'Avenir Next', Arial`;
-    g.fillText(P.sign, bx, by + 2); g.restore();
+    g.fillText(P.sign, 0, P.cheque ? 18 : 2); g.restore();
+    p.rot = G.headRot;
   }
+  if (opts.trail) { // ghosts of the arms and held props along the path of a fast move (reference: the hammer swing)
+    const tcx = 300 + 3 * u * (opts.facing ?? 0); p.rot = G.torsoRot;
+    for (const gh of opts.trail) { p.g.save(); p.g.globalAlpha = gh.a;
+      gh.hands.forEach((t, i) => { if (!t) return; const side = i ? 1 : -1, S: P2 = [tcx + side * 0.85 * G.Ta, chin + 0.12 * HH], Hd: P2 = [300 + t[0] * HH, chin + t[1] * HH];
+        const E: P2 = [(S[0] + Hd[0]) / 2 + side * 6 * u, (S[1] + Hd[1]) / 2 + 0.05 * HH];
+        p.stroke([S, E, Hd], 6.6 * u, "#2a2030"); p.dot(Hd[0], Hd[1], 8 * u, "#2a2030");
+        const k = opts.hold?.[i]; if (k) { const [x, y] = p.P(Hd[0], Hd[1]); const keep = p.rot; p.rot = null; drawHeld(p, k, [x, y], side, u); p.rot = keep; } });
+      p.g.restore(); }
+  }
+  p.rot = null;
   bodyFront(p, o, opts);
+  const hands = { l: [...HANDS_OUT.l] as [number, number], r: [...HANDS_OUT.r] as [number, number] };
+  p.rot = G.torsoRot;
   const thinInk = 4.5 * u;
   if (sack) {
     // karung goni: wide tapered sack from the shoulders to the ground, rope tie at the top, burlap weave, a stencil stripe
@@ -125,9 +178,7 @@ export const drawPerson = (p: Pen, P: Person, opts: FrontOpts) => {
         for (let i = 0; i < 6; i++) pts.push([x0 + i * 6 * u * (rnd(k + 72) < 0.5 ? 1 : -1), y0 + i * 7 * u + (i % 2 ? 4 * u : -2 * u)]);
         p.stroke(pts, 2.6 * u);
       }
-      const hemCol = dress ? o.dress! : o.jacket; // ragged hem: hanging torn flaps
-      for (let k = 0; k < Math.round(2 + 3 * dmg); k++) { const x = tcx + (rnd(k + 80) - 0.5) * 1.6 * hw, w2 = (8 + 8 * rnd(k + 81)) * u, h2 = (10 + 14 * rnd(k + 82)) * u * dmg;
-        p.poly([[x - w2 / 2, bot - 2 * u], [x + w2 / 2, bot - 2 * u], [x + w2 * 0.1, bot + h2]], hemCol, 2.6 * u); }
+      // (no hanging hem flaps: they read as triangles at the feet)
     }
     if (shn > 0.02) {
       g.save(); g.globalCompositeOperation = "source-atop"; // glossy sheen across the clothes
@@ -147,6 +198,14 @@ export const drawPerson = (p: Pen, P: Person, opts: FrontOpts) => {
     const pts: P2[] = []; for (let i = 0; i <= 14; i++) { const t = i / 14; pts.push([300 - 0.22 * W + 0.44 * W * t, chin + 0.12 * HH + Math.sin(t * Math.PI) * 0.28 * HH]); }
     p.stroke(pts, 3.2 * u, "#e8b820"); p.ell(300, chin + 0.44 * HH, 5 * u, 5 * u, "#ffd84a", 2 * u);
   }
+  p.rot = G.headRot;
+  if ((P.damage ?? 0) > 0.5) { // dust and smudges on the face after the whirlwind (the reference fall: sand on the skin)
+    const dmg = P.damage!, rr = (k: number) => { const x = Math.sin((opts.seed ?? 1) * 57.3 + k * 19.1) * 43758.5453; return x - Math.floor(x); };
+    const g = p.g; g.save(); g.globalAlpha = 0.5 * dmg;
+    for (let k = 0; k < 7; k++) { const [x, y] = p.P(300 + (rr(k) - 0.5) * 1.3 * H.a, hc + (rr(k + 9) - 0.2) * 0.9 * H.b); g.fillStyle = k % 3 ? "#8a6a4a" : "#6a5038"; g.beginPath(); g.ellipse(x, y, (4 + 9 * rr(k + 3)) * u, (3 + 6 * rr(k + 5)) * u, rr(k + 7) * 3, 0, 7); g.fill(); }
+    g.restore();
+  }
+  { const W = Wh;
   if (P.extras.includes("shades")) {
     const ey = hc + 0.05 * H.b;
     for (const s of [-1, 1]) p.poly([[300 + s * 0.06 * W, ey - 0.13 * H.b], [300 + s * 0.4 * W, ey - 0.15 * H.b], [300 + s * 0.36 * W, ey + 0.17 * H.b], [300 + s * 0.09 * W, ey + 0.14 * H.b]], "#14121a", 3 * u);
@@ -177,6 +236,9 @@ export const drawPerson = (p: Pen, P: Person, opts: FrontOpts) => {
   if (P.extras.includes("hijab")) { // front fold under the chin, framing the face
     p.poly([[300 - 0.5 * W, hc + 0.3 * H.b], [300 - 0.3 * W, chin + 0.12 * HH], [300 + 0.3 * W, chin + 0.12 * HH], [300 + 0.5 * W, hc + 0.3 * H.b], [300 + 0.42 * W, chin - 0.02 * HH], [300 - 0.42 * W, chin - 0.02 * HH]], P.hijab!, thinInk);
   }
+  }
+  p.rot = null;
+  if (opts.hold) { if (opts.hold[0]) drawHeld(p, opts.hold[0], hands.l, -1, u); if (opts.hold[1]) drawHeld(p, opts.hold[1], hands.r, 1, u); }
 };
 
 // ---- chickens (300 x 300 design, feet at y = 285) ----

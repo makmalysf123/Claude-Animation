@@ -18,9 +18,15 @@ import { AyamStory, AYAM_FRAMES } from "./videos/format/AyamStory";
 import { AyamTest, AYAM_TEST_FRAMES } from "./videos/ayam/AyamTest";
 import { AyamRef, AYAM_REF_FRAMES } from "./videos/ayam/AyamRef";
 import { AyamCast } from "./videos/ayam/AyamCast";
+import { AyamShort, AYAM_SHORT_FRAMES } from "./videos/ayam/AyamShort";
+import { AyamActTest, AYAM_ACT_FRAMES } from "./videos/ayam/AyamActTest";
+import { AyamFull, AYAM_FULL_FRAMES } from "./videos/ayam/AyamFull";
 
 export const RemotionRoot: React.FC = () => (
   <>
+  <Composition id="AyamFull" component={AyamFull} durationInFrames={AYAM_FULL_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="AyamActTest" component={AyamActTest} durationInFrames={AYAM_ACT_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="AyamShort" component={AyamShort} durationInFrames={AYAM_SHORT_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="AyamCast" component={AyamCast} durationInFrames={1} fps={30} width={1080} height={1920} />
   <Composition id="AyamRef" component={AyamRef} durationInFrames={AYAM_REF_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="AyamTest" component={AyamTest} durationInFrames={AYAM_TEST_FRAMES} fps={30} width={1080} height={1920} />

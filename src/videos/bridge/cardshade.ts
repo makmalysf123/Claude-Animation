@@ -52,6 +52,22 @@ vec3 outgoingLight = diffuseColor.rgb * tintK;
     float torso = step( 0.27, vMapUv.y ) * step( vMapUv.y, 0.57 ) * step( 0.5, c1.a ) * step( 0.5, c2.a ) * step( 0.04, max( c1.r, max( c1.g, c1.b ) ) );
     float rim = warm * smoothstep( 0.1, 0.4, sl ) * edge * max( skin * head, torso ) * mix( 0.6, 1.0, sunVis );
     outgoingLight += vec3( 0.95, 0.52, 0.16 ) * rim;
+    // 2D-reads-3D pass (ayam; off when uRimK = 0, so the bridge short is unchanged): march the silhouette toward the
+    // light for a wide soft rim on the lit edge, and away from it for a cool form-shade crescent on the far edge.
+    if ( uRimK > 0.0 ) {
+      vec2 st = 3.0 * uPx * ( d2.x * dFdx( vMapUv ) + d2.y * dFdy( vMapUv ) );
+      float kin = 0.0, kout = 0.0;
+      for ( int k = 1; k <= 7; k ++ ) { if ( kin == 0.0 && texture2D( map, vMapUv + st * float( k ) ).a < 0.5 ) kin = float( k ); }
+      for ( int k = 1; k <= 12; k ++ ) { if ( kout == 0.0 && texture2D( map, vMapUv - st * 1.7 * float( k ) ).a < 0.5 ) kout = float( k ); }
+      float rimA = kin > 0.0 ? 1.0 - ( kin - 1.0 ) / 7.0 : 0.0;
+      float farA = kout > 0.0 ? 1.0 - ( kout - 1.0 ) / 12.0 : 0.0;
+      float lum = dot( diffuseColor.rgb, vec3( 0.3, 0.59, 0.11 ) );
+      float notInk = smoothstep( 0.07, 0.2, lum );
+      float sl2 = smoothstep( 0.05, 0.45, sl );
+      float back = smoothstep( -0.1, 0.7, -sunV.z );
+      outgoingLight *= mix( vec3( 1.0 ), uShadeCol, smoothstep( 0.0, 1.0, farA ) * 0.9 * uRimK * sl2 );
+      outgoingLight = mix( outgoingLight, outgoingLight * 0.55 + uRimCol * 1.25, clamp( rimA * 1.15, 0.0, 1.0 ) * notInk * uRimK * sl2 * mix( 0.55, 1.0, back ) * mix( 0.45, 1.0, sunVis ) );
+    }
   }
   #endif
 }
@@ -59,9 +75,10 @@ vec3 outgoingLight = diffuseColor.rgb * tintK;
 `;
 
 const DECL = "#include <common>\nuniform vec3 uCharTint; uniform float uCharShade; uniform float uGrad; uniform float uBodyGrad; uniform vec3 uSideTint;"
-  + " uniform float uGradK; uniform float uGradKB; uniform float uTintK; uniform float uNorm; uniform float uGain; uniform float uPx;";
+  + " uniform float uRimK; uniform vec3 uRimCol; uniform vec3 uShadeCol; uniform float uGradK; uniform float uGradKB; uniform float uTintK; uniform float uNorm; uniform float uGain; uniform float uPx;";
 /** card-only constants (not per light): gradient share, tint share, overall gain (calibrated: faces ~.93 V) */
-export const CARD_K = { uGradK: { value: GRAD_K }, uGradKB: { value: GRAD_KB }, uTintK: { value: TINT_K }, uNorm: { value: 0.7 }, uGain: { value: 1.03 }, uPx: { value: 0.5 } }; // uPx = render height / 1920 (set per draw in cast.ts)
+export const CARD_K = { uGradK: { value: GRAD_K }, uGradKB: { value: GRAD_KB }, uTintK: { value: TINT_K }, uNorm: { value: 0.7 }, uGain: { value: 1.03 }, uPx: { value: 0.5 },
+  uRimK: { value: 0 }, uRimCol: { value: new THREE.Color(1, 0.8, 0.5) }, uShadeCol: { value: new THREE.Color(0.6, 0.62, 0.85) } }; // uPx = render height / 1920 (set per draw in cast.ts)
 
 /** MeshLambertMaterial -> lit card: no emissive, scene tint, bright floor, side gradient toward the sun. */
 export function cardShade(m: THREE.MeshLambertMaterial) {
@@ -73,7 +90,7 @@ export function cardShade(m: THREE.MeshLambertMaterial) {
       .replace("#include <lights_fragment_begin>", "float sunVis = 1.0;\n" + LFB)
       .replace("vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;", CARD);
   };
-  m.customProgramCacheKey = () => "card9";
+  m.customProgramCacheKey = () => "card10";
   return m;
 }
 

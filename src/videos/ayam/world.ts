@@ -5,17 +5,21 @@
 // Every house is its own group so the whirlwind can lift and spin it away. Ground = one huge plane (no horizon line),
 // paths are thin meshes 2 cm above it (depth jump far below the ink threshold, so no lines along their edges).
 import * as THREE from "three";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { ctex, rep, grassHD, roofHD, cloudHD, planksHD } from "../bridge/paint";
 import { LIGHTS, LOOK, LightPreset, WorldLook } from "../bridge/lights";
 import { TONE, CHAR, twoTone, untone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";
 import { Pool, Actor, Fx, SU } from "../bridge/cast";
-import { Pen, fxContact, fxPuff } from "../bridge/toon";
-import { blobMaterial } from "../bridge/cardshade";
-import { drawPerson, drawHen, drawChick, Person } from "./people";
+import { Pen, fxContact, fxPuff, MOUTH_STYLE } from "../bridge/toon";
+MOUTH_STYLE.detail = true; // ayam cast: teeth row + tongue in open mouths
+import { blobMaterial, CARD_K } from "../bridge/cardshade";
+import { drawPerson, drawHen, drawChick, Person, ActOpts } from "./people";
 import type { FrontOpts } from "../bridge/toon";
 
 export const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+/** layer of the mirror puddles (main camera only) */
+export const PUDDLE = 5;
 export type Mood = "day" | "golden" | "night" | "storm";
 /** moonlit night: cool blue key from behind-right, navy sky + fog, faces stay readable (charTint cool, not grey) */
 const NIGHT: LightPreset = { ...LIGHTS.golden, az: 125, el: 32, lit: [0.24, 0.3, 0.56], shade: [0.07, 0.09, 0.2], lift: [0.02, 0.03, 0.09], term: 0.2,
@@ -24,10 +28,10 @@ const NIGHT: LightPreset = { ...LIGHTS.golden, az: 125, el: 32, lit: [0.24, 0.3,
   bias: LIGHTS.day.bias, normalBias: LIGHTS.day.normalBias };
 const NIGHT_LOOK: WorldLook = { ...LOOK.day, sky: { c: ["#34498a", "#2a3d7a", "#1f3068", "#172656", "#0e1a42"], e: [0, 3, 8, 16, 40] }, bounce: [0, 0, 0], sat: 1.0, cloud: { lit: "#56679a", mid: "#3b4a7a", shade: "#283664" } };
 /** our sunset: low sun side-back (az 38) so walls get a terminator gradient + warm rims, shade violet but light (never grey) */
-const GOLDEN: LightPreset = { ...LIGHTS.golden, az: 104, el: 12, lit: [1.62, 0.92, 0.5], shade: [0.42, 0.32, 0.55], lift: [0.07, 0.05, 0.16], lambert: 0.6, term: 0.35, sideK: 0.78 };
+const GOLDEN: LightPreset = { ...LIGHTS.golden, az: 62, el: 19, lit: [1.62, 0.92, 0.5], shade: [0.42, 0.32, 0.55], lift: [0.07, 0.05, 0.16], lambert: 0.6, term: 0.35, sideK: 0.78 };
 /** storm: overcast, soft light from high up, grey gradient sky, desaturated world, grey fog close in */
 const STORM: LightPreset = { ...LIGHTS.day, az: 70, el: 55, lit: [0.9, 0.92, 0.98], shade: [0.62, 0.63, 0.68], lift: [0.04, 0.04, 0.06], lambert: 0.55, term: 0.6, sideK: 0.8,
-  charTint: [0.86, 0.88, 0.93], charShade: 0.9, charGrad: 0.05, bodyGrad: 0.12, sideTint: [0.9, 0.9, 0.95], fog: "#8a9099", fogNear: 12, fogFar: 170, sunI: 1.2, hemiI: 0.5 };
+  charTint: [0.86, 0.88, 0.93], charShade: 0.9, charGrad: 0.05, bodyGrad: 0.12, sideTint: [0.9, 0.9, 0.95], fog: "#8f959e", fogNear: 6, fogFar: 75, sunI: 1.2, hemiI: 0.5 };
 const STORM_LOOK: WorldLook = { ...LOOK.day, sky: { c: ["#a9aeb6", "#959aa3", "#7c818a", "#62676f", "#44484f"], e: [0, 4, 10, 20, 45] }, bounce: [0, 0, 0], sat: 0.32, cloud: { lit: "#9aa0a8", mid: "#7d838c", shade: "#5c6169" } };
 const PRESET: Record<Mood, [LightPreset, WorldLook]> = { day: [LIGHTS.day, LOOK.day], golden: [GOLDEN, LOOK.golden], night: [NIGHT, NIGHT_LOOK], storm: [STORM, STORM_LOOK] };
 /** shade height gradient per mood: [bottom multiplier, top multiplier, height range] */
@@ -269,9 +273,10 @@ export class AyamWorld {
   clouds: THREE.Mesh[] = [];
   roads: THREE.Mesh[] = [];
   crack!: THREE.Mesh; clouds3d: THREE.Group[] = []; cloudMat!: THREE.MeshBasicMaterial; cloudShadows: THREE.Mesh[] = [];
-  ref = { board: new THREE.Group(), roast: new THREE.Group(), basket: new THREE.Group(), protest: [] as THREE.Group[] };
+  ref = { board: new THREE.Group(), roast: new THREE.Group(), basket: new THREE.Group(), protest: [] as THREE.Group[], bones: new THREE.Group(), suv: new THREE.Group(), dijual: new THREE.Group() };
+  boardFace!: THREE.MeshBasicMaterial; boardTex: Record<string, THREE.Texture> = {};
   rain: THREE.InstancedMesh; signs: THREE.Object3D[] = []; moon: THREE.Mesh; bonfire = new THREE.Group(); flames: THREE.Mesh[] = [];
-  private sunDir = new THREE.Vector3();
+  sunDir = new THREE.Vector3();
 
   constructor() {
     const R = this.root;
@@ -499,7 +504,18 @@ export class AyamWorld {
         g.fillStyle = "#ff7b7b"; g.fillText("MISKIN", 600, 560);
       });
       const b = this.ref.board, wood = col("#8b5a32");
-      const face = new THREE.MeshBasicMaterial({ map: t });
+      const face = new THREE.MeshBasicMaterial({ map: t }); this.boardFace = face; this.boardTex.kenapa = t;
+      this.boardTex.telurAyam = ctex("boardTelurAyam", 1024, 740, (g) => {
+        g.fillStyle = "#1f4a37"; g.fillRect(0, 0, 1024, 740); g.fillStyle = "#f4f1e6"; g.textAlign = "center"; g.font = "900 96px 'Avenir Next', Arial"; g.fillText("MAUNYA APA?", 512, 120);
+        g.textAlign = "left"; g.font = "900 120px 'Avenir Next', Arial"; g.fillStyle = "#ffd23f"; g.fillText("2 =", 150, 330); g.fillStyle = "#7be08f"; g.fillText("3 =", 150, 560);
+        g.fillStyle = "#fbf1e2"; g.beginPath(); g.ellipse(470, 290, 60, 78, 0, 0, 7); g.fill(); g.strokeStyle = "#f4f1e6"; g.lineWidth = 6; g.stroke(); g.font = "800 60px 'Avenir Next', Arial"; g.fillText("TELUR", 570, 312);
+        for (let k = 0; k < 3; k++) { const x = 470 + k * 150; g.fillStyle = "#ffd84a"; g.beginPath(); g.ellipse(x, 525, 50, 44, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(x + 34, 488, 28, 26, 0, 0, 7); g.fill(); g.fillStyle = "#f2a33a"; g.beginPath(); g.moveTo(x + 58, 484); g.lineTo(x + 80, 492); g.lineTo(x + 58, 500); g.fill(); }
+        g.fillStyle = "#7be08f"; g.font = "800 60px 'Avenir Next', Arial"; g.fillText("AYAM!", 430, 650); });
+      this.boardTex.investasi = ctex("boardInvestasi", 1024, 740, (g) => {
+        g.fillStyle = "#f6f3ea"; g.fillRect(0, 0, 1024, 740); g.fillStyle = "#1c2340"; g.textAlign = "center"; g.font = "900 78px 'Avenir Next', Arial"; g.fillText("INSTRUMEN INVESTASI", 512, 110);
+        g.strokeStyle = "#9aa3ad"; g.lineWidth = 4; for (let k = 0; k < 5; k++) { g.beginPath(); g.moveTo(110, 220 + k * 90); g.lineTo(930, 220 + k * 90); g.stroke(); }
+        g.strokeStyle = "#2f6fb5"; g.lineWidth = 14; g.lineJoin = "round"; g.beginPath(); [[120, 560], [260, 540], [380, 548], [520, 500], [640, 470], [780, 430], [920, 360]].forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+        g.fillStyle = "#5a6470"; g.font = "700 46px 'Avenir Next', Arial"; g.fillText("reksa dana · obligasi · saham", 512, 680); });
       const bd = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.38, 0.06), [wood, wood, wood, wood, face, wood]); bd.position.y = 1.55; bd.rotation.x = -0.12; bd.castShadow = true; b.add(bd);
       for (const dx of [-0.75, 0.75]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.4, 0.07), wood); l.position.set(dx, 1.15, 0.12); l.rotation.x = -0.12; l.castShadow = true; b.add(l); }
       const back = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.4, 0.07), wood); back.position.set(0, 1.12, -0.45); back.rotation.x = 0.35; back.castShadow = true; b.add(back);
@@ -509,9 +525,13 @@ export class AyamWorld {
     { // roast chicken on a spit over the bonfire
       const r = this.ref.roast, stick = col("#6b4a2e");
       for (const dx of [-0.75, 0.75]) { for (const a of [-0.3, 0.3]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 6), stick); st.position.set(dx, 0.55, 0); st.rotation.x = a; st.castShadow = true; r.add(st); } }
-      const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.8, 6), col("#8a8a8a")); sp.rotation.z = Math.PI / 2; sp.position.y = 1.05; r.add(sp);
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), lam("roastSkin", () => ({ color: "#b8642a" }))); body.scale.set(1.35, 0.9, 0.95); body.position.y = 1.02; body.castShadow = true; r.add(body);
-      for (const s2 of [-1, 1]) { const leg = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), lam("roastSkin", () => ({ color: "#b8642a" }))); leg.scale.set(1.5, 0.9, 0.9); leg.position.set(0.28, 1.0, s2 * 0.16); leg.rotation.z = -0.4; r.add(leg); const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 6), col("#f4ecd8")); bone.rotation.z = Math.PI / 2; bone.position.set(0.47, 1.06, s2 * 0.16); r.add(bone); }
+      const spin = new THREE.Group(); spin.position.y = 1.05; spin.name = "spin"; r.add(spin); // turns about the spit (x axis)
+      const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.8, 6), col("#8a8a8a")); sp.rotation.z = Math.PI / 2; spin.add(sp);
+      const crank = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.22, 6), col("#6b4a2e")); crank.position.set(-0.9, -0.11, 0); spin.add(crank);
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), lam("roastSkin", () => ({ color: "#b8642a" }))); body.scale.set(1.35, 0.9, 0.95); body.position.y = -0.03; body.castShadow = true; body.name = "body"; spin.add(body);
+      for (const s2 of [-1, 1]) { const leg = new THREE.Group(); leg.name = "leg" + (s2 > 0 ? "R" : "L"); spin.add(leg);
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), lam("roastSkin", () => ({ color: "#b8642a" }))); m.scale.set(1.5, 0.9, 0.9); m.position.set(0.28, -0.05, s2 * 0.16); m.rotation.z = -0.4; leg.add(m);
+        const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 6), col("#f4ecd8")); bone.rotation.z = Math.PI / 2; bone.position.set(0.47, 0.01, s2 * 0.16); leg.add(bone); }
       r.visible = false; R.add(r);
     }
     { // woven basket full of eggs
@@ -521,6 +541,30 @@ export class AyamWorld {
       const fill = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20), col("#c9a86a")); fill.rotation.x = -Math.PI / 2; fill.position.y = 0.26; k.add(fill);
       for (let i = 0; i < 13; i++) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), col(i % 3 ? "#fbf1e2" : "#f1dcc0")); e.scale.set(1, 1.3, 1); const a = i * 2.4, rr = i < 6 ? 0.22 : 0.1; e.position.set(Math.cos(a) * rr, 0.33 + (i >= 9 ? 0.08 : 0), Math.sin(a) * rr); e.castShadow = true; k.add(e); }
       k.visible = false; R.add(k);
+    }
+    { // chicken bones on a plate (after the roast is eaten)
+      const b = this.ref.bones; const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.05, 24), col("#f2f0ea")); plate.position.y = 0.03; plate.castShadow = true; b.add(plate);
+      for (let k = 0; k < 6; k++) { const bone = new THREE.Group(); const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.26, 8), col("#f3ead6")); sh.rotation.z = Math.PI / 2; bone.add(sh);
+        for (const sx of [-0.14, 0.14]) for (const dz of [-0.025, 0.025]) { const kn = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), col("#f3ead6")); kn.position.set(sx, 0, dz); bone.add(kn); }
+        bone.position.set(Math.cos(k * 1.1) * 0.18, 0.08 + (k % 2) * 0.03, Math.sin(k * 1.1) * 0.15); bone.rotation.y = k * 0.9; b.add(bone); }
+      b.visible = false; R.add(b);
+    }
+    { // black used SUV ("BEKAS" sticker), generic shape, no logo
+      const c = this.ref.suv, body = twoTone(new THREE.MeshPhongMaterial({ color: "#1b1d22", specular: "#9aa3ad", shininess: 80 })), glass = col("#24364a"), chrome = col("#c9ccd2");
+      box(c, 2.0, 0.85, 4.6, body, 0, 0.85, 0); box(c, 1.86, 0.75, 2.7, body, 0, 1.62, -0.25);
+      box(c, 1.9, 0.55, 2.4, glass, 0, 1.65, -0.25); box(c, 2.04, 0.12, 4.65, chrome, 0, 0.52, 0);
+      for (const [x, z] of [[-0.95, 1.5], [0.95, 1.5], [-0.95, -1.5], [0.95, -1.5]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.32, 18), col("#15161a")); wh.rotation.z = Math.PI / 2; wh.position.set(x, 0.42, z); wh.castShadow = true; c.add(wh); const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.34, 12), chrome); rim.rotation.z = Math.PI / 2; rim.position.set(x, 0.42, z); c.add(rim); }
+      for (const sx of [-0.65, 0.65]) { const hl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.16, 0.06), new THREE.MeshBasicMaterial({ color: new THREE.Color("#fff6d8").multiplyScalar(1.6) })); hl.position.set(sx, 1.0, 2.31); c.add(hl); }
+      const st = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.26), new THREE.MeshBasicMaterial({ map: ctex("bekasSticker", 512, 220, (g) => { g.fillStyle = "#ffd23f"; g.fillRect(0, 0, 512, 220); g.fillStyle = "#c0262f"; g.font = "900 130px 'Avenir Next', Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("BEKAS", 256, 116); }) }));
+      st.position.set(0.97, 1.7, -1.15); st.rotation.y = Math.PI / 2; c.add(st);
+      c.visible = false; R.add(c);
+    }
+    { // "SUDAH DIJUAL" sign on a post at the edge of a sawah
+      const d = this.ref.dijual, tex = ctex("dijualSign", 1024, 420, (g) => { g.fillStyle = "#ffffff"; g.fillRect(0, 0, 1024, 420); g.strokeStyle = "#c0262f"; g.lineWidth = 24; g.strokeRect(14, 14, 996, 392); g.fillStyle = "#c0262f"; g.font = "900 150px 'Avenir Next', Arial"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("SUDAH DIJUAL", 512, 160); g.fillStyle = "#1c2340"; g.font = "700 64px 'Avenir Next', Arial"; g.fillText("tanah sawah ± 1 hektar", 512, 305); });
+      const side = col("#e8e4da"), face = new THREE.MeshBasicMaterial({ map: tex });
+      const bd = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.74, 0.06), [side, side, side, side, face, side]); bd.position.y = 1.7; bd.castShadow = true; d.add(bd);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 8), col("#7a5634")); post.position.y = 0.85; post.castShadow = true; d.add(post);
+      d.visible = false; R.add(d);
     }
     for (const [txt, bg] of [["GA ADIL!", "#f2e6c8"], ["BAGI DONG!", "#e9dcc0"], ["AYAM KAMI MANA?", "#f2e6c8"]] as const) { // cardboard protest signs
       const t = ctex("protest" + txt, 512, 300, (g) => { g.fillStyle = bg; g.fillRect(0, 0, 512, 300); g.strokeStyle = "rgba(120,90,50,0.5)"; g.lineWidth = 6; g.strokeRect(10, 10, 492, 280); g.fillStyle = "#c0262f"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `900 ${txt.length > 10 ? 64 : 92}px 'Avenir Next', Arial`; g.fillText(txt, 256, 155); });
@@ -589,6 +633,12 @@ export class AyamWorld {
     TONE.uLitCol.value.set(...L.lit); TONE.uShadeCol.value.set(...L.shade); TONE.uShadeLift.value.set(...L.lift);
     const hg = HGRAD[mood]; TONE.uHBot.value.set(...hg[0]); TONE.uHTop.value.set(...hg[1]); TONE.uHRange.value.set(...hg[2]);
     TONE.uLambert.value = L.lambert; TONE.uSideK.value = L.sideK; TONE.uTerm.value = L.term; TONE.uBounce.value.set(...K.bounce); TONE.uSat.value = K.sat;
+    { // 2D-reads-3D card light: rim colour = the key light, shade crescent = the sky colour of the far side
+      const RIM: Record<Mood, [number, [number, number, number], [number, number, number]]> = {
+        day: [0.85, [1.0, 0.86, 0.6], [0.64, 0.68, 0.9]], golden: [1.0, [1.45, 0.82, 0.34], [0.55, 0.45, 0.85]],
+        night: [1.0, [0.55, 0.7, 1.25], [0.4, 0.44, 0.72]], storm: [0.55, [0.6, 0.64, 0.72], [0.62, 0.64, 0.72]] };
+      const [k, rc, scol] = RIM[mood]; CARD_K.uRimK.value = k; CARD_K.uRimCol.value.setRGB(...rc); CARD_K.uShadeCol.value.setRGB(...scol);
+    }
     CHAR.uCharTint.value.set(...L.charTint); CHAR.uCharShade.value = L.charShade; CHAR.uGrad.value = L.charGrad; CHAR.uBodyGrad.value = L.bodyGrad; CHAR.uSideTint.value.set(...L.sideTint);
     const su = this.skyMat.uniforms; K.sky.c.forEach((h, i) => untone(h, su["c" + i].value));
     const e = K.sky.e.map((deg) => THREE.MathUtils.degToRad(deg)); su.e.value.set(e[1], e[2], e[3], e[4]);
@@ -596,7 +646,7 @@ export class AyamWorld {
     untone(L.fog, this.fog.color); this.fog.near = mood === "day" ? 40 : L.fogNear; this.fog.far = mood === "day" ? 420 : L.fogFar;
     this.rain.visible = mood === "storm"; scene.fog = this.fog; scene.background = null;
     const cc = mood === "night" ? [0.36, 0.42, 0.62] : mood === "golden" ? [1.12, 0.84, 0.78] : mood === "storm" ? [0.42, 0.43, 0.47] : [1.06, 1.06, 1.06];
-    this.cloudMat.color.setRGB(cc[0], cc[1], cc[2]); this.cloudShadows.forEach((m) => (m.visible = mood === "day" || mood === "golden"));
+    this.cloudMat.color.setRGB(cc[0], cc[1], cc[2]); this.cloudShadows.forEach((m) => (m.visible = mood === "day"));
     this.moon.visible = mood === "night"; this.moon.position.copy(cam.position).add(V(-260, 330, 380)); this.moon.lookAt(cam.position);
     this.bonfire.visible = mood === "night";
     for (const m of this.clouds) m.lookAt(cam.position.x, m.position.y, cam.position.z);
@@ -608,13 +658,34 @@ export class AyamWorld {
     if (!this.rain.visible) return;
     const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), tilt = new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), -0.28), P = new THREE.Vector3(), S = V(1, 1, 1);
     Q.copy(cam.quaternion).multiply(tilt);
+    // spread the streaks through the whole view frustum (screen-space cells at depth d), falling at ~9 m/s in the world,
+    // so the frame is covered wherever the camera looks (the old horizontal slab left bare patches looking up or down)
+    const fw = cam.getWorldDirection(new THREE.Vector3()), rt = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+    const tv = Math.tan((cam.fov * Math.PI) / 360) * 1.25, th = tv * cam.aspect * 1.4;
     for (let i = 0; i < this.rain.count; i++) {
-      const h = (i * 0.61803) % 1, fall = (((h * 18 + f * 0.5) % 18) + 18) % 18;
-      const fw = cam.getWorldDirection(P).clone(), d = 3 + hash(i * 2.3) * 30, sd = (hash(i * 1.1) - 0.5) * d * 1.1;
-      P.set(cam.position.x + fw.x * d - fw.z * sd + fall * 0.28 - 2.5, cam.position.y + 9 - fall, cam.position.z + fw.z * d + fw.x * sd);
+      const d = 4 + hash(i * 2.3) ** 1.2 * 40, u = (hash(i * 1.1) * 2 - 1) * th * d, span = 2 * tv * d;
+      const v = ((((hash(i * 3.7) * span - f * 0.3 - i * 0.01) % span) + span) % span) - tv * d;
+      P.copy(cam.position).addScaledVector(fw, d).addScaledVector(rt, u - v * 0.28).addScaledVector(up, v);
       M4.compose(P, Q, S); this.rain.setMatrixAt(i, M4);
     }
     this.rain.instanceMatrix.needsUpdate = true;
+  }
+  /** rain puddles that really mirror the world (sky, people, signs): three's Reflector on its own layer (PUDDLE) so
+   *  puddles never render each other; their mirror cameras see the cards (NOINK) too. [x, z, radius, turn] */
+  puddles: Reflector[] = [];
+  setPuddles(list: [number, number, number, number?][]) {
+    list.forEach(([x, z, r, ry = 0], i) => {
+      let m = this.puddles[i];
+      if (!m) {
+        const pts: THREE.Vector2[] = []; for (let k = 0; k < 28; k++) { const a = (k / 28) * Math.PI * 2, rr = 1 + 0.16 * Math.sin(a * 3 + i * 1.7) + 0.08 * Math.sin(a * 5 + i); pts.push(new THREE.Vector2(Math.cos(a) * rr, Math.sin(a) * rr)); }
+        m = new Reflector(new THREE.ShapeGeometry(new THREE.Shape(pts)), { textureWidth: 720, textureHeight: 720, color: 0x8d97a6, clipBias: 0.003 });
+        m.rotation.x = -Math.PI / 2; m.camera.layers.enable(NOINK); m.layers.set(PUDDLE); this.root.add(m); this.puddles.push(m);
+        const rim = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts.map((v) => v.clone().multiplyScalar(1.12)))), blobMaterial(ctex("wetRim", 64, 64, (g) => { g.fillStyle = "#b4aaa0"; g.fillRect(0, 0, 64, 64); })));
+        rim.position.z = -0.012; rim.layers.set(NOINK); m.add(rim); // darker wet ground just around the water
+      }
+      m.visible = true; m.position.set(x, 0.035, z); m.scale.set(r, r * 0.66, 1); m.rotation.z = ry;
+    });
+    for (let i = list.length; i < this.puddles.length; i++) this.puddles[i].visible = false;
   }
   /** bonfire brightness 0.75..1 this frame (for the glow on faces) */
   fireK(f: number) { return 0.86 + 0.08 * Math.sin(f * 1.7) + 0.06 * Math.sin(f * 3.1 + 1); }
@@ -623,6 +694,7 @@ export class AyamWorld {
     this.crack.visible = prog > 0; this.crack.position.set(x, 0.04, z); this.crack.scale.set(size, size, 1);
     const u = (this.crack.material as THREE.ShaderMaterial).uniforms; u.uProg.value = prog; u.uGlow.value = glow;
   }
+  setBoard(kind: "kenapa" | "telurAyam" | "investasi") { this.boardFace.map = this.boardTex[kind]; this.boardFace.needsUpdate = true; }
   flicker(f: number) { this.flames.forEach((m, k) => { const s2 = 1 + 0.12 * Math.sin(f * 1.7 + k * 2) + 0.08 * Math.sin(f * 3.1 + k); m.scale.set(1 + 0.06 * Math.sin(f * 2.3 + k), s2, 1); }); }
   /** whirlwind at local frame lf of the "harta hilang" scene: funnel crosses west -> east, houses + coins lift and spin up */
   setWind(lf: number | null) {
@@ -655,7 +727,7 @@ const tier = (d: number): [number, number, number] => (d < 3.2 ? [1200, 2000, 2.
 const q = (v: number) => Math.round(v * 60) / 60;
 /** a nearby light (bonfire, lamp, glowing prop) that tints the side of the card facing it: k = strength 0..1 */
 export type Glow = { at: THREE.Vector3; col: [number, number, number]; k: number; radius?: number };
-export type Who = { id: string; P: Person; x: number; z: number; y?: number; opts: FrontOpts; scale?: number; glow?: Glow };
+export type Who = { id: string; P: Person; x: number; z: number; y?: number; opts: ActOpts; scale?: number; glow?: Glow; shadow?: boolean };
 /** paint a light falling on the drawing: warm radial tint on the drawn pixels only (source-atop), strongest where the light is */
 const glowOn = (g: CanvasRenderingContext2D, cx: number, cy: number, col: [number, number, number], k: number) => {
   g.save(); g.globalCompositeOperation = "source-atop";
@@ -666,13 +738,26 @@ const glowOn = (g: CanvasRenderingContext2D, cx: number, cy: number, col: [numbe
   hl.addColorStop(0, `rgba(${r},${Math.round(gg * 0.7)},${Math.round(b * 0.4)},${(0.38 * k).toFixed(3)})`); hl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = hl; g.fillRect(-200, -200, 1000, 1400);
   g.restore();
 };
-export type Bird = { kind: "hen" | "chick"; x: number; z: number; peck: number; mirror?: boolean; scale?: number; y?: number };
+export type Bird = { kind: "hen" | "chick" | "rooster"; x: number; z: number; peck: number; mirror?: boolean; scale?: number; y?: number };
 
+/** invisible stand-in that only draws into the sun's shadow map: the character's silhouette turned to face the sun, so
+ *  the cast shadow keeps the full figure whatever way the camera-facing card is turned (reference: every figure throws a
+ *  soft shadow along the ground away from the key light) */
+const shadowOnly = () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide, alphaTest: 0.5 });
 export class Cast {
-  private used = 0; private bused = 0; private fused = 0;
-  actors: Actor[] = []; birds: Actor[] = []; blobs: Fx[] = [];
+  private used = 0; private bused = 0; private fused = 0; private sused = 0;
+  actors: Actor[] = []; birds: Actor[] = []; blobs: Fx[] = []; shadows: THREE.Mesh[] = []; private shadowSrc: Actor[] = [];
   constructor(private w: AyamWorld) {}
-  begin() { this.used = this.bused = this.fused = 0; }
+  begin() { this.used = this.bused = this.fused = this.sused = 0; }
+  private shadowOf(a: Actor, geo: THREE.BufferGeometry) {
+    let m = this.shadows[this.sused++];
+    if (!m) { m = new THREE.Mesh(geo, shadowOnly()); m.castShadow = true; m.receiveShadow = false; m.layers.set(NOINK); m.renderOrder = -5; this.w.root.add(m); this.shadows.push(m); }
+    // three's shadow pass copies map + alphaTest from the mesh's OWN material, so each stand-in carries the card texture
+    m.geometry = geo; m.visible = true; this.shadowSrc[this.sused - 1] = a;
+    m.position.copy(a.mesh.position); m.scale.copy(a.mesh.scale); m.scale.x = Math.abs(m.scale.x);
+    const d = this.w.sunDir; m.rotation.set(0, Math.atan2(d.x, d.z), 0);
+    a.mesh.receiveShadow = false; // its own stand-in would cut through the card
+  }
   private blob(x: number, z: number, s: number, cam: THREE.Camera) {
     let f = this.blobs[this.fused++]; if (!f) { f = new Fx(this.w.root); this.blobs.push(f); }
     f.r = this.w.pool.req("blob|contact|#3a3554", 128, 128, 1, (p) => fxContact(p, "#7f7b98"));
@@ -698,24 +783,28 @@ export class Cast {
     a.mesh.visible = true; a.mesh.position.set(w.x, w.y ?? 0, w.z); a.mesh.scale.setScalar(w.scale ?? 1);
     a.mesh.rotation.set(0, Math.atan2(cam.position.x - w.x, cam.position.z - w.z), 0);
     if ((w.y ?? 0) < 0.3) this.blob(w.x, w.z, w.scale ?? 1, cam);
+    if (w.shadow !== false) this.shadowOf(a, BODY);
   }
   bird(b: Bird, cam: THREE.PerspectiveCamera) {
     let a = this.birds[this.bused++]; if (!a) { a = new Actor(this.w.root, BIRD); this.birds.push(a); }
     const pk = q(b.peck);
-    a.r = this.w.pool.req(`B|${b.kind}|${pk}`, 300, 300, 1, (p) => (b.kind === "hen" ? drawHen(p, pk) : drawChick(p, pk)));
-    a.mesh.visible = true; a.mesh.position.set(b.x, b.y ?? 0, b.z); const s = b.scale ?? (b.kind === "hen" ? 1 : 0.55);
+    a.r = this.w.pool.req(`B|${b.kind}|${pk}`, 300, 300, 1, (p) => (b.kind === "hen" ? drawHen(p, pk) : b.kind === "rooster" ? drawHen(p, pk, "#c4682c", "#e0302f") : drawChick(p, pk)));
+    a.mesh.visible = true; a.mesh.position.set(b.x, b.y ?? 0, b.z); const s = b.scale ?? (b.kind === "chick" ? 0.55 : b.kind === "rooster" ? 1.15 : 1);
     a.mesh.scale.set(s * (b.mirror ? -1 : 1), s, s);
     a.mesh.rotation.set(0, Math.atan2(cam.position.x - b.x, cam.position.z - b.z), 0);
     if (s > 0.05 && (b.y ?? 0) < 0.2) this.blob(b.x, b.z, s * 0.6, cam);
+    if (s > 0.05) this.shadowOf(a, BIRD);
   }
   end() {
     for (let i = this.used; i < this.actors.length; i++) this.actors[i].mesh.visible = false;
     for (let i = this.bused; i < this.birds.length; i++) this.birds[i].mesh.visible = false;
     for (let i = this.fused; i < this.blobs.length; i++) this.blobs[i].mesh.visible = false;
+    for (let i = this.sused; i < this.shadows.length; i++) this.shadows[i].visible = false;
     this.w.pool.flush();
     for (let i = 0; i < this.used; i++) this.actors[i].bind();
     for (let i = 0; i < this.bused; i++) this.birds[i].bind();
     for (let i = 0; i < this.fused; i++) this.blobs[i].bind();
+    for (let i = 0; i < this.sused; i++) (this.shadows[i].material as THREE.MeshBasicMaterial).map = this.shadowSrc[i].mat.map;
   }
 }
 export { Pen, fxPuff, blobMaterial };
