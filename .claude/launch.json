@@ -4,8 +4,23 @@
     {
       "name": "remotion-studio",
       "runtimeExecutable": "/Users/akmalyusuf/Downloads/Claude-Animation/.tools/node/bin/node",
-      "runtimeArgs": ["node_modules/@remotion/cli/remotion-cli.js", "studio", "src/index.ts", "--port", "3000", "--no-open"],
+      "runtimeArgs": [
+        "node_modules/@remotion/cli/remotion-cli.js",
+        "studio",
+        "src/index.ts",
+        "--port",
+        "3000",
+        "--no-open"
+      ],
       "port": 3000
+    },
+    {
+      "name": "frame-sink",
+      "runtimeExecutable": "/Users/akmalyusuf/Downloads/Claude-Animation/.tools/node/bin/node",
+      "runtimeArgs": [
+        "scripts/frame_sink.mjs"
+      ],
+      "port": 8765
     }
   ]
 }

@@ -41,7 +41,7 @@ export const villager = (i: number): Person => {
 
 // ---- body geometry: the same numbers as bodyFront (bob, squat, head morph, lean), so overlays ride on the body ----
 const rd = (d: number) => (d * Math.PI) / 180;
-const geom = (o: Outfit, opts: FrontOpts) => {
+export const geom = (o: Outfit, opts: FrontOpts) => {
   const Bd = BUILD[o.build ?? "adult"], headK = opts.headK ?? 1, H0 = headBlob(opts.seed ?? 1, Bd.a, opts.facing ?? 0);
   const H = { ...H0, a: H0.a * headK, b: H0.b / Math.sqrt(headK) }, HH = 2 * H0.b, W = 2 * H0.a, sole = 975, two = Math.PI * 2;
   const mode = opts.mode ?? "march", ph = opts.phase ?? 0, tall = (1 + Bd.torso + Bd.legs) * HH;

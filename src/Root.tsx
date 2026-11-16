@@ -21,9 +21,19 @@ import { AyamCast } from "./videos/ayam/AyamCast";
 import { AyamShort, AYAM_SHORT_FRAMES } from "./videos/ayam/AyamShort";
 import { AyamActTest, AYAM_ACT_FRAMES } from "./videos/ayam/AyamActTest";
 import { AyamFull, AYAM_FULL_FRAMES } from "./videos/ayam/AyamFull";
+import { KetindihanKamar, KAMAR_FRAMES } from "./videos/ketindihan/Kamar";
+import { ActingTest, ACTING_FRAMES } from "./test/ActingTest";
+import { ToonGallery } from "./test/ToonGallery";
+import { KetindihanFilm, FILM_FRAMES } from "./videos/ketindihan2/Film";
+import { ContactSheet, SHEET_W, SHEET_H, sheetMeta } from "./test/ContactSheet";
 
 export const RemotionRoot: React.FC = () => (
   <>
+  <Composition id="KetindihanFilm" component={KetindihanFilm} durationInFrames={FILM_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="ToonGallery" component={ToonGallery} durationInFrames={1} fps={30} width={1920} height={1080} />
+  <Composition id="ActingTest" component={ActingTest} durationInFrames={ACTING_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="ContactSheet" component={ContactSheet} durationInFrames={1} fps={30} width={SHEET_W} height={SHEET_H} defaultProps={{ prefix: "f_", frames: [] as number[] }} calculateMetadata={sheetMeta} />
+  <Composition id="KetindihanKamar" component={KetindihanKamar} durationInFrames={KAMAR_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="AyamFull" component={AyamFull} durationInFrames={AYAM_FULL_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="AyamActTest" component={AyamActTest} durationInFrames={AYAM_ACT_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="AyamShort" component={AyamShort} durationInFrames={AYAM_SHORT_FRAMES} fps={30} width={1080} height={1920} />
