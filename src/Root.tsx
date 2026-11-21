@@ -23,14 +23,33 @@ import { AyamActTest, AYAM_ACT_FRAMES } from "./videos/ayam/AyamActTest";
 import { AyamFull, AYAM_FULL_FRAMES } from "./videos/ayam/AyamFull";
 import { KetindihanKamar, KAMAR_FRAMES } from "./videos/ketindihan/Kamar";
 import { ActingTest, ACTING_FRAMES } from "./test/ActingTest";
+import { Char3DTest, CHAR3D_FRAMES } from "./test/Char3DTest";
+import { Move3DTest, MOVE3D_FRAMES } from "./test/Move3DTest";
+import { FightTest, FIGHT_FRAMES } from "./test/FightTest";
+import { Silhouette2DTest, SIL_FRAMES } from "./test/Silhouette2D";
 import { ToonGallery } from "./test/ToonGallery";
 import { KetindihanFilm, FILM_FRAMES } from "./videos/ketindihan2/Film";
+import { GajiHook, HOOK_FRAMES } from "./videos/gaji/Hook";
+import { KopiFilm, KOPI_FRAMES } from "./videos/kopi/Film";
+import { KopiFilm2, KOPI2_FRAMES, KopiClip, KOPI2_CLIPS, clipFrames } from "./videos/kopi/Film2";
+import { EmasPrevA, EmasPrevB, EmasPrevC, EMAS_PREV_FRAMES } from "./videos/emas/Preview";
+import { EmasFilm, EMAS_FRAMES } from "./videos/emas/Film";
 import { ContactSheet, SHEET_W, SHEET_H, sheetMeta } from "./test/ContactSheet";
 
 export const RemotionRoot: React.FC = () => (
   <>
+  <Composition id="KopiFilm" component={KopiFilm} durationInFrames={KOPI_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="KopiFilm2" component={KopiFilm2} durationInFrames={KOPI2_FRAMES} fps={30} width={1080} height={1920} />
+  {(Object.keys(KOPI2_CLIPS) as (keyof typeof KOPI2_CLIPS)[]).map((id) => <Composition key={id} id={id} component={KopiClip} durationInFrames={clipFrames(KOPI2_CLIPS[id])} fps={30} width={1080} height={1920} defaultProps={{ id }} />)}
+  <Composition id="GajiHook" component={GajiHook} durationInFrames={HOOK_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="KetindihanFilm" component={KetindihanFilm} durationInFrames={FILM_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="ToonGallery" component={ToonGallery} durationInFrames={1} fps={30} width={1920} height={1080} />
+  <Composition id="Move3DTest" component={Move3DTest} durationInFrames={MOVE3D_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="EmasFilm" component={EmasFilm} durationInFrames={EMAS_FRAMES} fps={30} width={1080} height={1920} />
+  {([["EmasPrevA", EmasPrevA], ["EmasPrevB", EmasPrevB], ["EmasPrevC", EmasPrevC]] as const).map(([id, C]) => <Composition key={id} id={id} component={C} durationInFrames={EMAS_PREV_FRAMES} fps={30} width={1080} height={1920} />)}
+  <Composition id="Silhouette2DTest" component={Silhouette2DTest} durationInFrames={SIL_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="FightTest" component={FightTest} durationInFrames={FIGHT_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="Char3DTest" component={Char3DTest} durationInFrames={CHAR3D_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="ActingTest" component={ActingTest} durationInFrames={ACTING_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="ContactSheet" component={ContactSheet} durationInFrames={1} fps={30} width={SHEET_W} height={SHEET_H} defaultProps={{ prefix: "f_", frames: [] as number[] }} calculateMetadata={sheetMeta} />
   <Composition id="KetindihanKamar" component={KetindihanKamar} durationInFrames={KAMAR_FRAMES} fps={30} width={1080} height={1920} />

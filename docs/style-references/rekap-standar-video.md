@@ -80,3 +80,20 @@ Ini daftar cek wajib untuk video berikutnya.
 - **Klip terpisah kalau diminta** (misalnya adegan otak saja), supaya bisa kamu edit di CapCut.
 - **Naskah narator diberi waktu per detik** dan dicek muat di tiap adegan.
 - **Tanya dulu sebelum menghapus file.** Jangan commit tanpa diminta.
+
+## 10. Detik pertama dan judul (pelajaran dari data YouTube, 2026-11-16)
+Ayam: 83,4 ribu view, 85,5% bertahan menonton. Ketindihan: 1,9 ribu view, 75,8% bertahan.
+Lama menonton dan rasio like-nya hampir sama. **Bedanya cuma di jumlah orang yang langsung menggeser di detik pertama.**
+- **Kunci dulu sebelum menulis cerita**:
+  1. Judul.
+  2. Kalimat pertama narator (maksimal 2 detik).
+  3. Gambar pertama (2–3 versi foto preview, user yang memilih).
+- **Judul berupa pertanyaan yang sudah ada di kepala penonton**, dengan kata sehari-hari. Nama konsep psikologinya dijelaskan di dalam video, bukan di judul.
+- **Gambar pertama**:
+  - terang, tokoh terlihat jelas, dan langsung ada kejadian;
+  - tidak dibuka dengan pemandangan luas yang pelan atau gelap.
+- **Pembuka tidak menyalahkan penonton.** Yang disalahkan keadaan; penonton menjadi korban atau orang yang penasaran.
+- **Topik yang semua orang rasakan** (uang, kerja, keseharian). Topik soal kepercayaan lebih berisiko digeser.
+- **Pertanyaan penutup bisa diperdebatkan dan tidak ada jawaban salah**, misalnya "investasi atau Fortuner bekas?".
+- **Ukur setiap video**: targetkan "Stayed to watch" minimal 85%.
+- **Nama konsep dan kata kuncinya ditahan sampai akhir** (studi naskah "guci naga" dengan 34 juta view: kata "gempa" baru muncul di kalimat terakhir). Rumus lengkapnya ada di [studi-naskah-guci-naga.md](studi-naskah-guci-naga.md).

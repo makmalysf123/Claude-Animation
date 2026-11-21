@@ -24,6 +24,8 @@ export const fbm = (x: number, y: number, size: number, cells: number, oct = 5) 
   return a;
 };
 let rs = 7; export const rnd = () => { rs = (rs * 16807) % 2147483647; return rs / 2147483647; };
+/** restart the shared random sequence: call at the top of a set constructor so every render tab builds the same set */
+export const seedRnd = (s = 7) => { rs = s; };
 
 // ---------------- helpers ----------------
 type Px = (x: number, y: number) => [number, number, number, number]; // r,g,b (0-255), height 0..1

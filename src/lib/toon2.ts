@@ -48,7 +48,7 @@ export type Pose = {
 // ---------------- cloth textures (made once) ----------------
 const pats = new Map<string, CanvasPattern>();
 const pat = (g: CanvasRenderingContext2D, key: string, size: number, draw: (c: CanvasRenderingContext2D) => void) => {
-  let p = pats.get(key); if (!p) { const c = document.createElement("canvas"); c.width = c.height = size; draw(c.getContext("2d")!); p = g.createPattern(c, "repeat")!; pats.set(key, p); } return p;
+  let p = pats.get(key); if (!p) { seedN = 1 + [...key].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 233280, 7); const c = document.createElement("canvas"); c.width = c.height = size; draw(c.getContext("2d")!); p = g.createPattern(c, "repeat")!; pats.set(key, p); } return p;
 };
 let seedN = 1; const rnd = () => { seedN = (seedN * 9301 + 49297) % 233280; return seedN / 233280; };
 const weave = (c: CanvasRenderingContext2D, n: number, a: number) => { // fine thread noise so cloth reads as fabric up close
