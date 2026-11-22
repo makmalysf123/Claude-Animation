@@ -34,6 +34,7 @@ import { KopiFilm, KOPI_FRAMES } from "./videos/kopi/Film";
 import { KopiFilm2, KOPI2_FRAMES, KopiClip, KOPI2_CLIPS, clipFrames } from "./videos/kopi/Film2";
 import { EmasPrevA, EmasPrevB, EmasPrevC, EMAS_PREV_FRAMES } from "./videos/emas/Preview";
 import { EmasFilm, EMAS_FRAMES } from "./videos/emas/Film";
+import { PlesterFilm, PLESTER_FRAMES } from "./videos/plester/Film";
 import { GaramModelTest } from "./videos/garam/ModelTest";
 import { GaramFilm, GARAM_FRAMES } from "./videos/garam/Film";
 import { GaramCaptions, GARAM_CAP_FRAMES } from "./videos/garam/Captions";
@@ -49,6 +50,7 @@ export const RemotionRoot: React.FC = () => (
   <Composition id="ToonGallery" component={ToonGallery} durationInFrames={1} fps={30} width={1920} height={1080} />
   <Composition id="Move3DTest" component={Move3DTest} durationInFrames={MOVE3D_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="EmasFilm" component={EmasFilm} durationInFrames={EMAS_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="PlesterFilm" component={PlesterFilm} durationInFrames={PLESTER_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="GaramModelTest" component={GaramModelTest} durationInFrames={90} fps={30} width={1080} height={1920} />
   <Composition id="GaramFilm" component={GaramFilm} durationInFrames={GARAM_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="GaramCaptions" component={GaramCaptions} durationInFrames={GARAM_CAP_FRAMES} fps={30} width={1080} height={1920} />
