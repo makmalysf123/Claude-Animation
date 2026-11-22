@@ -21,3 +21,6 @@ references/
 
 # Test narration from TTS (regenerate with audio/voice_tts.py); the final voice is added separately
 voice/
+
+# Copy of the user's final CapCut edit (input for the GaramCaptions comp; the original stays in their folder)
+public/garam/final/
