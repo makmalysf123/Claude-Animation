@@ -38,6 +38,9 @@ import { PlesterFilm, PLESTER_FRAMES } from "./videos/plester/Film";
 import { GaramModelTest } from "./videos/garam/ModelTest";
 import { GaramFilm, GARAM_FRAMES } from "./videos/garam/Film";
 import { GaramCaptions, GARAM_CAP_FRAMES } from "./videos/garam/Captions";
+import { LadakhSetTest } from "./videos/ladakh/SetTest";
+import { LadakhFilm, LADAKH_FRAMES } from "./videos/ladakh/Film";
+import { LadakhCaptions, LADAKH_CAP_FRAMES } from "./videos/ladakh/Captions";
 import { ContactSheet, SHEET_W, SHEET_H, sheetMeta } from "./test/ContactSheet";
 
 export const RemotionRoot: React.FC = () => (
@@ -53,6 +56,9 @@ export const RemotionRoot: React.FC = () => (
   <Composition id="PlesterFilm" component={PlesterFilm} durationInFrames={PLESTER_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="GaramModelTest" component={GaramModelTest} durationInFrames={90} fps={30} width={1080} height={1920} />
   <Composition id="GaramFilm" component={GaramFilm} durationInFrames={GARAM_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="LadakhFilm" component={LadakhFilm} durationInFrames={LADAKH_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="LadakhCaptions" component={LadakhCaptions} durationInFrames={LADAKH_CAP_FRAMES} fps={30} width={1080} height={1920} />
+  <Composition id="LadakhSetTest" component={LadakhSetTest} durationInFrames={150} fps={30} width={1080} height={1920} />
   <Composition id="GaramCaptions" component={GaramCaptions} durationInFrames={GARAM_CAP_FRAMES} fps={30} width={1080} height={1920} />
   {([["EmasPrevA", EmasPrevA], ["EmasPrevB", EmasPrevB], ["EmasPrevC", EmasPrevC]] as const).map(([id, C]) => <Composition key={id} id={id} component={C} durationInFrames={EMAS_PREV_FRAMES} fps={30} width={1080} height={1920} />)}
   <Composition id="Silhouette2DTest" component={Silhouette2DTest} durationInFrames={SIL_FRAMES} fps={30} width={1080} height={1920} />

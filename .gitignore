@@ -24,3 +24,6 @@ voice/
 
 # Copy of the user's final CapCut edit (input for the GaramCaptions comp; the original stays in their folder)
 public/garam/final/
+
+# Copy of the user's final CapCut edit (input for the LadakhCaptions comp; the original stays in their folder)
+public/ladakh/final/
