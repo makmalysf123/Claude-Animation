@@ -24,6 +24,12 @@ React 18.3, @react-three/fiber 8.18, @react-three/postprocessing 2.x, postproces
   longest clip. Scale the character by its head-top bone (`mixamorigHeadTop_End`) to ~1.78 m; strip x/z hips root motion
   for walk/idle loops and move the character in code. See `src/test/MixamoTest.tsx`.
 
+## Camera moves (approved style, 2026-11-25)
+Smooth one-take camera moves (push-in, crane, orbit, FOV zoom, top-down + spin, low angle, pan, pull-out) with a global
+`speed`: `src/lib/camMoves.ts`, guide `docs/tech/camera-moves.md`, example `src/videos/room/cam.ts` (`RoomCamTest`).
+Use it to vary angles inside a scene and for scene-to-scene moves; check paths with a layout checker like
+`scripts/roomcam_check.mjs` and renders with `scripts/flicker_check.mjs`.
+
 ## Sound
 `audio/sfx_gen.py` synthesizes ~40 effects (bolt snap, splash, boots, whoosh, crowd...). `audio/sfx.py render(v_ref)`
 builds the bridge's effect track; `audio/music.py render(build(), ref)` the march score. `audio/mix.py` needs a voice

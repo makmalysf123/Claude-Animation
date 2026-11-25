@@ -19,7 +19,7 @@ import { FPS, noise, sm, clamp01 } from "./acting";
 
 export const W = 1080, H = 1920;
 export type V3 = [number, number, number];
-export type SetLike = { root: THREE.Group; sunDir: THREE.Vector3; update: (t: number) => void };
+export type SetLike = { root: THREE.Group; sunDir: THREE.Vector3; update: (t: number, scene?: THREE.Scene, cam?: THREE.Camera) => void };
 export type Key = { t: number; pos: V3; look: V3; fov?: number };
 /** eased camera path through keys; holds still drift a few millimetres so no frame is ever frozen */
 export const camPath = (keys: Key[], t: number) => {
@@ -30,7 +30,7 @@ export const camPath = (keys: Key[], t: number) => {
   return { pos: [pos[0] + d * noise(t * 0.6, 1), pos[1] + d * noise(t * 0.7, 2), pos[2]] as V3, look, fov: (a.fov ?? 40) + ((b.fov ?? 40) - (a.fov ?? 40)) * u };
 };
 export type Ctx = { t: number; cam: THREE.PerspectiveCamera; set: SetLike; card: (i: number) => ToonCard };
-export type SceneDef = { from: number; to: number; mk: () => SetLike; keys: Key[]; act: (c: Ctx) => void; fog: string; dens: number; bg: string; focus?: (t: number) => V3; cInf?: number; night?: boolean; env?: number; ao?: [number, number, number]; bloom?: number; exposure?: number; grade?: [V3, V3, number]; sat?: number; contrast?: number; satAt?: (t: number) => number; fadeAt?: (t: number) => number };
+export type SceneDef = { from: number; to: number; mk: () => SetLike; keys: Key[]; act: (c: Ctx) => void; fog: string; dens: number; bg: string; focus?: (t: number) => V3; cInf?: number; night?: boolean; env?: number; ao?: [number, number, number]; bloom?: number; exposure?: number; grade?: [V3, V3, number]; sat?: number; contrast?: number; satAt?: (t: number) => number; fadeAt?: (t: number) => number; near?: number; far?: number };
 /** split toning after tone mapping: shadows pushed toward \`sh\`, highlights toward \`hi\` (0.5 = neutral), strength k */
 class SplitTone extends Effect {
   constructor(sh: V3, hi: V3, k: number) {
@@ -62,8 +62,8 @@ const Inner: React.FC<{ S: SceneDef }> = ({ S }) => {
   }), [S]);
   scene.fog = new THREE.FogExp2(S.fog, S.dens); scene.background = new THREE.Color(S.bg);
   const c = camPath(S.keys, t);
-  cam.position.set(...c.pos); cam.up.set(0, 1, 0); cam.lookAt(...c.look); cam.fov = c.fov; cam.near = 0.05; cam.far = 300; cam.updateProjectionMatrix(); cam.updateMatrixWorld(); cam.layers.enable(NOINK);
-  set.update(t); S.act({ t, cam, set, card });
+  cam.position.set(...c.pos); cam.up.set(0, 1, 0); cam.lookAt(...c.look); cam.fov = c.fov; cam.near = S.near ?? 0.05; cam.far = S.far ?? 300; cam.updateProjectionMatrix(); cam.updateMatrixWorld(); cam.layers.enable(NOINK);
+  set.update(t, scene, cam); S.act({ t, cam, set, card });
   if (S.satAt) post.hue.saturation = S.satAt(t);
   if (S.fadeAt) post.bc.brightness = (S.exposure ?? 0) - S.fadeAt(t);
   const fp = S.focus ? S.focus(t) : c.look; post.lens.focus = new THREE.Vector3(...fp).sub(cam.position).length(); post.lens.cInf = S.cInf ?? 6;
