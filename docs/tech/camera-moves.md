@@ -93,6 +93,8 @@ Urutan yang enak ditonton (dari tes):
   Semua tanpa tabrakan. Di ruangan kecil, di atas ~3.5 m/s mulai terasa terburu-buru. Cek dulu di video.
 
 ## 6. Pemeriksaan wajib sebelum render penuh
+Gerakan cepat: tambahkan motion blur, dan ukur tempo serta kedip dengan alat di [blur-tempo-kedip.md](blur-tempo-kedip.md).
+
 1. `node scripts/roomcam_check.mjs [speed]` mengecek setiap frame:
    - Kamera tidak menembus dinding, lantai, plafon, atau perabot. Perabot didaftar sebagai kotak di `SOLIDS` (`layout.ts`) dengan jarak aman 18 cm.
    - Arah `up` tidak sejajar arah pandang.

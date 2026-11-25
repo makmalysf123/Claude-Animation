@@ -29,6 +29,9 @@ Smooth one-take camera moves (push-in, crane, orbit, FOV zoom, top-down + spin, 
 `speed`: `src/lib/camMoves.ts`, guide `docs/tech/camera-moves.md`, example `src/videos/room/cam.ts` (`RoomCamTest`).
 Use it to vary angles inside a scene and for scene-to-scene moves; check paths with a layout checker like
 `scripts/roomcam_check.mjs` and renders with `scripts/flicker_check.mjs`.
+Motion blur (`withBlur` + `scripts/motion_blur.mjs`), tempo meter (`scripts/pacing.mjs`) and the render-tab flicker test
+(exit 3 in `flicker_check.mjs`): `docs/tech/blur-tempo-kedip.md`. Every frame must depend only on the frame number (no
+`Math.random`/`Date` in anything drawn). Render via `node scripts/render.mjs` (small bundle, long timeout).
 
 ## Sound
 `audio/sfx_gen.py` synthesizes ~40 effects (bolt snap, splash, boots, whoosh, crowd...). `audio/sfx.py render(v_ref)`

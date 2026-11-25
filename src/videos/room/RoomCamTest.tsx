@@ -2,9 +2,10 @@
 // push-in, crane, glide, FOV zoom, orbit, top-down + spin, low angle, pan, pull-out. The path is in cam.ts (checked
 // frame by frame against the furniture by scripts/roomcam_check.mjs); the room is kamar.ts.
 // Faster take: npx remotion render src/index.ts RoomCamTest out/room/fast.mp4 --props='{"speed":1.5}'
+// Motion blur: render RoomCamTestBlur (120 fps, 4 samples per frame), then node scripts/motion_blur.mjs in.mp4 out.mp4
 import React from "react";
 import { continueRender, delayRender } from "remotion";
-import { Reel, SceneDef, SetLike } from "../../lib/scene";
+import { Reel, SceneDef, SetLike, withBlur } from "../../lib/scene";
 import { applyCam } from "../../lib/camMoves";
 import { loadRoom, roomReady } from "./models";
 import { Kamar } from "./kamar";
@@ -29,3 +30,5 @@ export const RoomCamTest: React.FC<RoomCamProps> = ({ speed = 1 }) => {
   React.useEffect(() => { if (!ok) loadRoom().then(() => { setOk(true); if (h !== null) continueRender(h); }); }, [ok, h]);
   return ok ? <Reel scenes={S} /> : null;
 };
+/** the same take at 4 samples per frame for motion blur (composition at 120 fps; average with scripts/motion_blur.mjs) */
+export const RoomCamTestBlur = withBlur(RoomCamTest, 4);

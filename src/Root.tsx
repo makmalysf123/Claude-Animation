@@ -42,11 +42,12 @@ import { LadakhSetTest } from "./videos/ladakh/SetTest";
 import { LadakhFilm, LADAKH_FRAMES } from "./videos/ladakh/Film";
 import { LadakhCaptions, LADAKH_CAP_FRAMES } from "./videos/ladakh/Captions";
 import { ContactSheet, SHEET_W, SHEET_H, sheetMeta } from "./test/ContactSheet";
-import { RoomCamTest, ROOMCAM_FRAMES, roomCamFrames } from "./videos/room/RoomCamTest";
+import { RoomCamTest, RoomCamTestBlur, ROOMCAM_FRAMES, roomCamFrames } from "./videos/room/RoomCamTest";
 
 export const RemotionRoot: React.FC = () => (
   <>
   <Composition id="RoomCamTest" component={RoomCamTest} durationInFrames={ROOMCAM_FRAMES} fps={30} width={1080} height={1920} defaultProps={{ speed: 1 }} calculateMetadata={({ props }) => ({ durationInFrames: roomCamFrames(props.speed) })} />
+  <Composition id="RoomCamTestBlur" component={RoomCamTestBlur} durationInFrames={ROOMCAM_FRAMES * 4} fps={120} width={1080} height={1920} defaultProps={{ speed: 1 }} calculateMetadata={({ props }) => ({ durationInFrames: roomCamFrames(props.speed) * 4 })} />
   <Composition id="KopiFilm" component={KopiFilm} durationInFrames={KOPI_FRAMES} fps={30} width={1080} height={1920} />
   <Composition id="KopiFilm2" component={KopiFilm2} durationInFrames={KOPI2_FRAMES} fps={30} width={1080} height={1920} />
   {(Object.keys(KOPI2_CLIPS) as (keyof typeof KOPI2_CLIPS)[]).map((id) => <Composition key={id} id={id} component={KopiClip} durationInFrames={clipFrames(KOPI2_CLIPS[id])} fps={30} width={1080} height={1920} defaultProps={{ id }} />)}

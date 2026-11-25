@@ -14,7 +14,7 @@ const { ROOM, SOLIDS } = await import(out.replace("roomcam_check", "roomcam_layo
   return import(out.replace("roomcam_check", "roomcam_layout") + "?y");
 });
 const M = 0.18, FPS = 30, N = Math.round(CAM_SECONDS * FPS);
-let bad = 0, prev = null, maxV = 0, maxA = 0, pv = 0;
+let bad = 0, prev = null, maxV = 0, maxA = 0, pv = 0, prevD = null, prevU = null, maxTurn = 0, turnAt = 0;
 for (let f = 0; f < N; f++) {
   const c = camAt(f / FPS), [x, y, z] = c.p; const why = [];
   if (x < ROOM.x0 + M || x > ROOM.x1 - M || z < ROOM.z0 + M || z > ROOM.z1 - M || y < 0.15 || y > ROOM.h - M) why.push("near wall/floor/ceiling");
@@ -23,7 +23,8 @@ for (let f = 0; f < N; f++) {
   if (dot > 0.94) why.push("up ~ parallel to view " + dot.toFixed(2));
   if (prev) { const v = Math.hypot(x - prev[0], y - prev[1], z - prev[2]); maxV = Math.max(maxV, v); maxA = Math.max(maxA, Math.abs(v - pv)); pv = v; }
   prev = c.p;
+  const dn = d.map((v) => v / dl); if (prevD) { const ang = (p, q) => Math.acos(Math.min(1, p[0] * q[0] + p[1] * q[1] + p[2] * q[2])) * 180 / Math.PI * FPS, a = Math.max(ang(dn, prevD), ang(c.up, prevU)); if (a > maxTurn) { maxTurn = a; turnAt = f / FPS; } } prevD = dn; prevU = c.up;
   if (why.length) { bad++; if (bad < 40) console.log(f, (f / FPS).toFixed(2), c.p.map((v) => v.toFixed(2)).join(","), why.join("; ")); }
 }
 CAM.moves.forEach((m, i) => console.log(`${(i ? CAM.ends[i - 1] : 0).toFixed(1).padStart(4)}-${CAM.ends[i].toFixed(1).padStart(4)} s  ${m.name}`));
-console.log(`speed ${SPEED}x: frames ${N}, bad ${bad}, max speed ${(maxV * FPS).toFixed(2)} m/s, max speed change/frame ${(maxA * FPS).toFixed(3)} m/s`);
+console.log(`speed ${SPEED}x: frames ${N}, bad ${bad}, max speed ${(maxV * FPS).toFixed(2)} m/s, max speed change/frame ${(maxA * FPS).toFixed(3)} m/s, max turn ${maxTurn.toFixed(0)} deg/s at ${turnAt.toFixed(1)} s (look or roll; keep under ~85 for motion blur)`);

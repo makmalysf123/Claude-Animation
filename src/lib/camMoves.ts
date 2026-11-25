@@ -8,7 +8,8 @@
 export type V3 = [number, number, number];
 /** p = camera position, l = point it looks at, f = vertical field of view (smaller = more zoom), up = top of frame */
 export type Pose = { p: V3; l: V3; f: number; up?: V3 };
-export type Move = { name?: string; dur: number } & (
+/** dur = seconds at speed 1; minDur = never shorter than this after `speed` (big pans/whips ghost under motion blur) */
+export type Move = { name?: string; dur: number; minDur?: number } & (
   | { kind: "line"; to: Pose; via?: V3 } // dolly / push-in / pull-out / crane (via = bend point for a curved path)
   | { kind: "orbit"; to: Pose; c: V3 } // arc around point c (angle, radius and height blend)
   | { kind: "pan"; to: Pose } // turn the head: the look direction swings by angle, not through the middle
@@ -36,7 +37,7 @@ export const topDown = (x: number, y: number, z: number, f: number, up: V3, floo
  */
 export const makeCam = (start: Pose, moves: Move[], opts: CamOpts = {}) => {
   const k = 1 / (opts.speed ?? 1), dr = opts.drift ?? 0.003;
-  const ends: number[] = []; let acc = 0; for (const m of moves) ends.push((acc += m.dur * k));
+  const ends: number[] = []; let acc = 0; for (const m of moves) ends.push((acc += Math.max(m.dur * k, Math.min(m.dur, m.minDur ?? 0))));
   const poses: Pose[] = []; let a = start;
   for (const m of moves) { a = m.kind === "hold" ? { ...a, ...(m.to ?? {}), p: a.p, l: a.l } : m.to; poses.push(a); }
   const at = (t: number): CamState => {

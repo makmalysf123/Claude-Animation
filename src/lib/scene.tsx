@@ -43,9 +43,18 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   }
 }
 const envCache = new WeakMap<THREE.WebGLRenderer, THREE.Texture>();
+/**
+ * Motion blur: samples per output frame (1 = off). A blur composition runs at FPS * k with k times the frames; frame F
+ * is sample j = F % k of output frame n = F / k, drawn at time (n + ((j + 0.5) / k) * 0.5 - 0.25) / FPS: k samples
+ * across a 180 degree shutter centred on the frame. scripts/motion_blur.mjs then averages each group of k frames.
+ * (Recipe from the MIT-licensed inkbeat-shorts skill.) Wrap a film with <SubCtx.Provider value={4}> or use withBlur().
+ */
+export const SubCtx = React.createContext(1);
+export const subTime = (F: number, k: number) => { if (k <= 1) return F / FPS; const n = Math.floor(F / k), j = F - n * k; return (n + ((j + 0.5) / k) * 0.5 - 0.25) / FPS; };
+export const withBlur = <P extends object>(C: React.ComponentType<P>, k = 4): React.FC<P> => (p) => <SubCtx.Provider value={k}><C {...p} /></SubCtx.Provider>;
 
-const Inner: React.FC<{ S: SceneDef }> = ({ S }) => {
-  const f = useCurrentFrame(), t = f / FPS;
+const Inner: React.FC<{ S: SceneDef; k: number }> = ({ S, k }) => {
+  const f = useCurrentFrame(), t = subTime(f, k);
   const { camera, scene, gl } = useThree(); const cam = camera as THREE.PerspectiveCamera;
   const set = useMemo(() => S.mk(), [S]);
   let env = envCache.get(gl); if (!env) { const pm = new THREE.PMREMGenerator(gl); env = pm.fromScene(new RoomEnvironment(), 0.04).texture; envCache.set(gl, env); }
@@ -80,21 +89,21 @@ const Inner: React.FC<{ S: SceneDef }> = ({ S }) => {
   );
 };
 
-const Fade: React.FC<{ on: boolean; xf: number; children: React.ReactNode }> = ({ on, xf, children }) => { const f = useCurrentFrame(); return <AbsoluteFill style={{ opacity: on ? clamp01((f + 1) / (xf + 1)) : 1 }}>{children}</AbsoluteFill>; };
+const Fade: React.FC<{ on: boolean; xf: number; k: number; children: React.ReactNode }> = ({ on, xf, k, children }) => { const f = subTime(useCurrentFrame(), k) * FPS; return <AbsoluteFill style={{ opacity: on ? clamp01((f + 1) / (xf + 1)) : 1 }}>{children}</AbsoluteFill>; };
 /** plays the scenes back to back; xf > 0 dissolves each scene in over xf frames */
-export const Reel: React.FC<{ scenes: SceneDef[]; xf?: number }> = ({ scenes, xf = 0 }) => (
+export const Reel: React.FC<{ scenes: SceneDef[]; xf?: number }> = ({ scenes, xf = 0 }) => { const k = React.useContext(SubCtx); return (
   <AbsoluteFill style={{ background: "#000" }}>
-    {scenes.map((S, i) => { const a = Math.round(S.from * FPS), b = Math.round(S.to * FPS) + (xf && i < scenes.length - 1 ? xf : 0); return (
+    {scenes.map((S, i) => { const a = Math.round(S.from * FPS) * k, b = (Math.round(S.to * FPS) + (xf && i < scenes.length - 1 ? xf : 0)) * k; return (
       <Sequence key={i} from={a} durationInFrames={b - a}>
-        <Fade on={xf > 0 && i > 0} xf={xf}>
+        <Fade on={xf > 0 && i > 0} xf={xf} k={k}>
           <ThreeCanvas width={W} height={H} shadows gl={{ antialias: false, stencil: false, powerPreference: "high-performance" }} camera={{ fov: 40, near: 0.05, far: 300 }}>
-            <Inner S={S} />
+            <Inner S={S} k={k} />
           </ThreeCanvas>
         </Fade>
       </Sequence>
     ); })}
   </AbsoluteFill>
-);
+); };
 
 /** world position of hand i of a placed card (for 3D props held in the hand) */
 export const handWorld = (c: ToonCard, S: CharSpec, P: Pose, i: 0 | 1) => {

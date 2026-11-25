@@ -494,7 +494,7 @@ export class AyamWorld {
     // ---- props for the story beats (hidden until a shot shows them) ----
     { // chalkboard on an easel: KENAPA? the rich line goes up, the poor line goes down
       const t = ctex("kenapaBoard", 1024, 740, (g) => {
-        g.fillStyle = "#1f4a37"; g.fillRect(0, 0, 1024, 740); g.fillStyle = "rgba(255,255,255,0.05)"; for (let i = 0; i < 60; i++) g.fillRect(Math.random() * 1024, Math.random() * 740, 120, 6);
+        g.fillStyle = "#1f4a37"; g.fillRect(0, 0, 1024, 740); g.fillStyle = "rgba(255,255,255,0.05)"; const hh = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }; for (let i = 0; i < 60; i++) g.fillRect(hh(i * 2) * 1024, hh(i * 2 + 1) * 740, 120, 6); // seeded, not Math.random: every render tab must draw the same
         g.fillStyle = "#f4f1e6"; g.font = "900 110px 'Avenir Next', Arial"; g.textAlign = "center"; g.fillText("KENAPA?", 512, 130);
         g.strokeStyle = "#f4f1e6"; g.lineWidth = 8; g.beginPath(); g.moveTo(120, 200); g.lineTo(120, 660); g.lineTo(930, 660); g.stroke();
         g.lineCap = "round"; g.lineJoin = "round";
